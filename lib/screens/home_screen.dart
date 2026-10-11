@@ -104,7 +104,12 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _pickAndSend([NearbyDevice? targetDevice]) async {
-    final result = await FilePicker.platform.pickFiles(allowMultiple: true);
+    // Opens the system file picker so you can choose photos from the gallery,
+    // files from Downloads, Documents, or any other folder.
+    final result = await FilePicker.platform.pickFiles(
+      allowMultiple: true,
+      type: FileType.any,
+    );
     if (result == null || result.files.isEmpty) return;
 
     final files = result.files.where((f) => f.path != null).toList();
