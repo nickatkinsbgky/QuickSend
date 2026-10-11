@@ -88,11 +88,12 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
-  Future<void> _pickAndSend() async {
-    final result = await FilePicker.platform.pickFiles();
+  Future<void> _pickAndSend([NearbyDevice? targetDevice]) async {
+    final result = await FilePicker.platform.pickFiles(allowMultiple: true);
     if (result == null || result.files.isEmpty) return;
-    final file = result.files.first;
-    if (file.path == null) return;
+
+    final files = result.files.where((f) => f.path != null).toList();
+    if (files.isEmpty) return;
 
     if (_devices.isEmpty) {
       if (mounted) {
@@ -103,15 +104,14 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
-    final device = _devices.first;
+    final device = targetDevice ?? _devices.first;
     if (mounted) {
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => TransferScreen(
             device: device,
-            filePath: file.path!,
-            fileName: file.name,
+            files: files.map((f) => {'path': f.path!, 'name': f.name}).toList(),
           ),
         ),
       );
@@ -158,22 +158,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       final device = _devices[index];
                       return DeviceCard(
                         device: device,
-                        onTap: () async {
-                          final result = await FilePicker.platform.pickFiles();
-                          if (result == null || result.files.isEmpty) return;
-                          final file = result.files.first;
-                          if (file.path == null || !mounted) return;
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => TransferScreen(
-                                device: device,
-                                filePath: file.path!,
-                                fileName: file.name,
-                              ),
-                            ),
-                          );
-                        },
+                        onTap: () => _pickAndSend(device),
                       );
                     },
                   ),
@@ -206,7 +191,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _pickAndSend,
+        onPressed: () => _pickAndSend(),
         icon: const Icon(Icons.send),
         label: const Text('Send'),
       ),
