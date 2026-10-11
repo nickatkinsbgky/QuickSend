@@ -34,7 +34,7 @@ lib/
 - [x] Wi-Fi mDNS device discovery and registration (phones, tablets, and PCs)
 - [x] Bluetooth Low Energy (BLE) scanning for nearby devices
 - [x] Bluetooth file send with filename header + EOF marker
-- [x] Bluetooth receive protocol (parses filename, buffers data, saves on EOF)
+- [x] Bluetooth receive protocol (parses FILENAME: header, buffers data, saves on EOF)
 - [x] Home screen listing nearby devices with platform identification
 - [x] Platform permissions for local network and Bluetooth discovery
 - [x] File picker and basic one-tap send flow
@@ -43,7 +43,7 @@ lib/
 - [x] Progress indication during send
 - [x] Simple list of received files
 - [x] Small image thumbnails for files being transferred
-- [ ] Full production Bluetooth GATT server (platform-specific)
+- [ ] Full production Bluetooth GATT server advertising (platform-specific)
 - [ ] Optional QR code pairing for devices not on the same network
 - [ ] End-to-end encryption for transfers
 - [ ] Support for multiple files and folders
@@ -60,7 +60,13 @@ flutter run
 
 > Note: If you clone this repo, run `flutter create .` inside the project directory to generate the remaining platform scaffolding (build.gradle, Xcode project, etc.), then the permission files will be in place.
 
-Discovery works over Wi-Fi (mDNS) and Bluetooth (BLE). Bluetooth transfers use a simple protocol: `FILENAME:name\n` header, followed by file data chunks, ended by `EOF`. The receive side parses the filename and saves the file when the end marker arrives.
+### Bluetooth Protocol
+Transfers over Bluetooth use this simple protocol:
+1. `FILENAME:original-name.ext\n`
+2. File data in chunks (~180 bytes)
+3. `EOF`
+
+The send side writes these in order. The receive side parses the header, buffers the data, and saves the file with the original name when `EOF` arrives.
 
 Received files are saved to the app's documents directory. A list of received files appears at the bottom of the home screen. Image files show a small thumbnail preview on the transfer screen and in the accept dialog.
 
