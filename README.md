@@ -8,7 +8,7 @@ Enable fast, private, peer-to-peer file transfer over local networks without clo
 ## Tech Stack
 - **Flutter** for UI and cross-platform code (iOS, Android, and later desktop)
 - Local network discovery via mDNS / NSD (Bonjour on iOS, Network Service Discovery on Android) using the `nsd` package
-- Direct transfer over local HTTP (basic implementation started)
+- Direct transfer over local HTTP with basic file saving
 - Planned: Rust core for high-performance networking (via flutter_rust_bridge) in later phases
 
 ## Architecture Overview
@@ -19,11 +19,11 @@ lib/
 │   ├── device.dart           # Nearby device model
 │   └── transfer.dart         # File transfer session model
 ├── services/
-│   ├── discovery_service.dart # Device discovery (mDNS) - basic implementation
-│   └── transfer_service.dart  # File send/receive logic - HTTP skeleton
+│   ├── discovery_service.dart # Device discovery (mDNS)
+│   └── transfer_service.dart  # File send/receive with saving
 ├── screens/
-│   ├── home_screen.dart      # Nearby devices list
-│   └── transfer_screen.dart  # Progress & confirmation UI
+│   ├── home_screen.dart      # Nearby devices list + receiver
+│   └── transfer_screen.dart  # Send progress UI
 └── widgets/
     └── device_card.dart      # Reusable device UI component
 ```
@@ -33,7 +33,8 @@ lib/
 - [x] Home screen listing nearby devices
 - [x] Platform permissions for local network discovery
 - [x] File picker and basic one-tap send flow
-- [ ] Receive and accept/reject incoming transfers
+- [x] Receive and save incoming files to app documents directory
+- [ ] Accept/reject dialog for incoming transfers
 - [ ] Progress indication and transfer history
 - [ ] Optional QR code pairing for devices not on the same network
 - [ ] End-to-end encryption for transfers
@@ -50,6 +51,8 @@ flutter run
 - **iOS** (`ios/Runner/Info.plist`): `NSLocalNetworkUsageDescription` and `NSBonjourServices` for `_quicksend._tcp`
 
 > Note: If you clone this repo, run `flutter create .` inside the project directory to generate the remaining platform scaffolding (build.gradle, Xcode project, etc.), then the permission files will be in place.
+
+Received files are saved to the app's documents directory.
 
 ## Inspiration
 LocalSend, BIShare, and similar open-source projects.
