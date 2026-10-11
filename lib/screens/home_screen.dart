@@ -208,7 +208,7 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: const Icon(Icons.refresh),
             tooltip: 'Refresh',
             onPressed: () {
-              _discovery.stopDiscovery().then((_) => _discovery.startDiscovery());
+              _discovery.stop().then((_) => _discovery.startDiscovery());
             },
           ),
         ],
