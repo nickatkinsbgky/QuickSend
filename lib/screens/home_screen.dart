@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
 import '../models/device.dart';
 import '../services/discovery_service.dart';
 import '../widgets/device_card.dart';
@@ -32,6 +33,38 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
+  Future<void> _pickAndSend() async {
+    final result = await FilePicker.platform.pickFiles();
+    if (result == null || result.files.isEmpty) return;
+
+    final file = result.files.first;
+    if (file.path == null) return;
+
+    if (_devices.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No nearby devices found')),
+        );
+      }
+      return;
+    }
+
+    // For simplicity, send to the first device (or show a picker later)
+    final device = _devices.first;
+    if (mounted) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => TransferScreen(
+            device: device,
+            filePath: file.path!,
+            fileName: file.name,
+          ),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -41,7 +74,6 @@ class _HomeScreenState extends State<HomeScreen> {
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () {
-              // Restart discovery
               _discovery.stopDiscovery().then((_) => _discovery.startDiscovery());
             },
           ),
@@ -64,11 +96,19 @@ class _HomeScreenState extends State<HomeScreen> {
                 final device = _devices[index];
                 return DeviceCard(
                   device: device,
-                  onTap: () {
+                  onTap: () async {
+                    final result = await FilePicker.platform.pickFiles();
+                    if (result == null || result.files.isEmpty) return;
+                    final file = result.files.first;
+                    if (file.path == null || !mounted) return;
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => TransferScreen(device: device),
+                        builder: (_) => TransferScreen(
+                          device: device,
+                          filePath: file.path!,
+                          fileName: file.name,
+                        ),
                       ),
                     );
                   },
@@ -76,12 +116,7 @@ class _HomeScreenState extends State<HomeScreen> {
               },
             ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          // TODO: Open file picker and show device selection
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('File picker coming next')),
-          );
-        },
+        onPressed: _pickAndSend,
         icon: const Icon(Icons.send),
         label: const Text('Send'),
       ),
