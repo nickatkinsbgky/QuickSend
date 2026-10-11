@@ -31,6 +31,7 @@ lib/
 ## Features
 - [x] Basic mDNS device discovery and registration
 - [x] Home screen listing nearby devices
+- [x] Platform permissions for local network discovery
 - [ ] One-tap send of photos, videos, documents, and other files
 - [ ] Receive and accept/reject incoming transfers
 - [ ] Progress indication and transfer history
@@ -44,9 +45,11 @@ flutter pub get
 flutter run
 ```
 
-**Platform notes:**
-- Android: Add `INTERNET` and `CHANGE_WIFI_MULTICAST_STATE` permissions.
-- iOS: Add `NSLocalNetworkUsageDescription` and `NSBonjourServices` for `_quicksend._tcp`.
+**Platform permissions (already added):**
+- **Android** (`android/app/src/main/AndroidManifest.xml`): `INTERNET`, `ACCESS_NETWORK_STATE`, `ACCESS_WIFI_STATE`, `CHANGE_WIFI_MULTICAST_STATE`
+- **iOS** (`ios/Runner/Info.plist`): `NSLocalNetworkUsageDescription` and `NSBonjourServices` for `_quicksend._tcp`
+
+> Note: If you clone this repo, run `flutter create .` inside the project directory to generate the remaining platform scaffolding (build.gradle, Xcode project, etc.), then the permission files will be in place.
 
 ## Inspiration
 LocalSend, BIShare, and similar open-source projects.
