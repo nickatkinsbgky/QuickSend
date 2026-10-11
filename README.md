@@ -25,7 +25,8 @@ lib/
 │   ├── home_screen.dart      # Nearby devices + received files list
 │   └── transfer_screen.dart  # Send progress UI
 └── widgets/
-    └── device_card.dart      # Reusable device UI component
+    ├── device_card.dart      # Reusable device UI component
+    └── file_thumbnail.dart   # Image thumbnail preview
 ```
 
 ## Features
@@ -37,6 +38,7 @@ lib/
 - [x] Accept/reject dialog for incoming transfers
 - [x] Progress indication during send
 - [x] Simple list of received files
+- [x] Small image thumbnails for files being transferred
 - [ ] Optional QR code pairing for devices not on the same network
 - [ ] End-to-end encryption for transfers
 - [ ] Support for multiple files and folders
@@ -53,7 +55,7 @@ flutter run
 
 > Note: If you clone this repo, run `flutter create .` inside the project directory to generate the remaining platform scaffolding (build.gradle, Xcode project, etc.), then the permission files will be in place.
 
-Received files are saved to the app's documents directory after the user accepts them. A list of received files appears at the bottom of the home screen.
+Received files are saved to the app's documents directory after the user accepts them. A list of received files appears at the bottom of the home screen. Image files show a small thumbnail preview on the transfer screen and in the accept dialog.
 
 ## Inspiration
 LocalSend, BIShare, and similar open-source projects.
