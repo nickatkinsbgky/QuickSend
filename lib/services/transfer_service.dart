@@ -21,6 +21,9 @@ class TransferService {
   final List<FileTransfer> receivedFiles = [];
   final Map<String, Completer<bool>> _pendingAcceptances = {};
 
+  // Temporary share links: token -> file path
+  final Map<String, String> _shareLinks = {};
+
   // BLE receive state
   List<int> _bleBuffer = [];
   String? _currentBleFileName;
@@ -36,6 +39,25 @@ class TransferService {
     try {
       _server = await HttpServer.bind(InternetAddress.anyIPv4, defaultPort);
       _server!.listen((request) async {
+        // Share link download (no app required)
+        if (request.method == 'GET' && request.uri.path.startsWith('/share/')) {
+          final token = request.uri.pathSegments.last;
+          final filePath = _shareLinks[token];
+          if (filePath != null && File(filePath).existsSync()) {
+            final file = File(filePath);
+            final fileName = file.uri.pathSegments.last;
+            request.response.headers.contentType = ContentType.binary;
+            request.response.headers.add('Content-Disposition', 'attachment; filename="$fileName"');
+            await request.response.addStream(file.openRead());
+            await request.response.close();
+            return;
+          }
+          request.response.statusCode = 404;
+          await request.response.close();
+          return;
+        }
+
+        // Existing upload endpoint
         if (request.method == 'POST' && request.uri.path == '/upload') {
           final fileName = request.headers.value('x-filename') ??
               request.headers.value('filename') ??
@@ -103,6 +125,33 @@ class TransferService {
       });
     } catch (e) {
       print('Failed to start HTTP receiver: $e');
+    }
+  }
+
+  /// Create a temporary share link that anyone on the same Wi-Fi can open in a browser.
+  Future<String?> createShareLink(String filePath, String fileName) async {
+    try {
+      final token = DateTime.now().millisecondsSinceEpoch.toString();
+      _shareLinks[token] = filePath;
+
+      // Try to get local IP
+      final interfaces = await NetworkInterface.list();
+      String? ip;
+      for (final iface in interfaces) {
+        for (final addr in iface.addresses) {
+          if (addr.type == InternetAddressType.IPv4 && !addr.isLoopback) {
+            ip = addr.address;
+            break;
+          }
+        }
+        if (ip != null) break;
+      }
+
+      if (ip == null) return null;
+      return 'http://$ip:$defaultPort/share/$token';
+    } catch (e) {
+      print('Failed to create share link: $e');
+      return null;
     }
   }
 
@@ -216,7 +265,6 @@ class TransferService {
     _server = null;
   }
 
-  /// Send a file over Wi-Fi (HTTP) or Bluetooth with real-time progress.
   Future<FileTransfer> sendFile({
     required NearbyDevice peer,
     required String filePath,
@@ -268,7 +316,6 @@ class TransferService {
         ..headers['x-filename'] = fileName
         ..fields['filename'] = fileName;
 
-      // Simulate smoother progress while preparing and sending
       final progressTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
         if (transfer.progress < 0.85) {
           transfer.progress += 0.05;
