@@ -18,24 +18,23 @@ class _HomeScreenState extends State<HomeScreen> {
   final DiscoveryService _discovery = DiscoveryService();
   final TransferService _transferService = TransferService();
   List<NearbyDevice> _devices = [];
+  List<FileTransfer> _received = [];
 
   @override
   void initState() {
     super.initState();
     _discovery.devicesStream.listen((devices) {
-      if (mounted) {
-        setState(() => _devices = devices);
-      }
+      if (mounted) setState(() => _devices = devices);
     });
     _discovery.startDiscovery();
     _transferService.startReceiver();
 
-    // Listen for incoming transfers and show accept/reject dialog
     _transferService.incomingTransfers.listen((transfer) {
       if (!mounted) return;
       if (transfer.status == TransferStatus.pending) {
         _showAcceptDialog(transfer);
-      } else if (transfer.status == TransferStatus.completed) {
+      } else if (transfer.status == TransferStatus.completed && !transfer.isOutgoing) {
+        setState(() => _received = List.from(_transferService.receivedFiles));
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Received: ${transfer.fileName}')),
         );
@@ -64,7 +63,6 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
     );
-
     _transferService.respondToTransfer(transfer.id, accepted == true);
   }
 
@@ -84,7 +82,6 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _pickAndSend() async {
     final result = await FilePicker.platform.pickFiles();
     if (result == null || result.files.isEmpty) return;
-
     final file = result.files.first;
     if (file.path == null) return;
 
@@ -126,42 +123,70 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      body: _devices.isEmpty
-          ? const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text('Looking for nearby devices...'),
-                ],
-              ),
-            )
-          : ListView.builder(
-              itemCount: _devices.length,
-              itemBuilder: (context, index) {
-                final device = _devices[index];
-                return DeviceCard(
-                  device: device,
-                  onTap: () async {
-                    final result = await FilePicker.platform.pickFiles();
-                    if (result == null || result.files.isEmpty) return;
-                    final file = result.files.first;
-                    if (file.path == null || !mounted) return;
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => TransferScreen(
-                          device: device,
-                          filePath: file.path!,
-                          fileName: file.name,
-                        ),
-                      ),
-                    );
-                  },
-                );
-              },
+      body: Column(
+        children: [
+          Expanded(
+            child: _devices.isEmpty
+                ? const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        CircularProgressIndicator(),
+                        SizedBox(height: 16),
+                        Text('Looking for nearby devices...'),
+                      ],
+                    ),
+                  )
+                : ListView.builder(
+                    itemCount: _devices.length,
+                    itemBuilder: (context, index) {
+                      final device = _devices[index];
+                      return DeviceCard(
+                        device: device,
+                        onTap: () async {
+                          final result = await FilePicker.platform.pickFiles();
+                          if (result == null || result.files.isEmpty) return;
+                          final file = result.files.first;
+                          if (file.path == null || !mounted) return;
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => TransferScreen(
+                                device: device,
+                                filePath: file.path!,
+                                fileName: file.name,
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
+          ),
+          if (_received.isNotEmpty) ...[
+            const Divider(),
+            const Padding(
+              padding: EdgeInsets.all(8),
+              child: Text('Received Files', style: TextStyle(fontWeight: FontWeight.bold)),
             ),
+            SizedBox(
+              height: 120,
+              child: ListView.builder(
+                itemCount: _received.length,
+                itemBuilder: (context, index) {
+                  final file = _received[index];
+                  return ListTile(
+                    leading: const Icon(Icons.insert_drive_file),
+                    title: Text(file.fileName),
+                    subtitle: Text(_formatSize(file.fileSize)),
+                    dense: true,
+                  );
+                },
+              ),
+            ),
+          ],
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _pickAndSend,
         icon: const Icon(Icons.send),
