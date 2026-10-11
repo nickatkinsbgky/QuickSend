@@ -12,6 +12,7 @@ dependencies:
   cupertino_icons: ^1.0.6
   # Discovery
   nsd: ^4.0.0
+  flutter_blue_plus: ^1.32.0
   # File picking
   file_picker: ^8.0.0
   # HTTP for transfers
