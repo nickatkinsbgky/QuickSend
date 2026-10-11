@@ -22,8 +22,17 @@ class TransferService {
   final List<FileTransfer> receivedFiles = [];
   final Map<String, Completer<bool>> _pendingAcceptances = {};
 
-  /// Start a simple HTTP server to receive files (Wi-Fi).
+  // BLE receive state
+  List<int> _bleBuffer = [];
+  String? _currentBleFileName;
+
+  /// Start both Wi-Fi HTTP and Bluetooth GATT receivers.
   Future<void> startReceiver() async {
+    await _startHttpReceiver();
+    await _startBluetoothReceiver();
+  }
+
+  Future<void> _startHttpReceiver() async {
     try {
       _server = await HttpServer.bind(InternetAddress.anyIPv4, defaultPort);
       _server!.listen((request) async {
@@ -93,7 +102,101 @@ class TransferService {
         }
       });
     } catch (e) {
-      print('Failed to start receiver: $e');
+      print('Failed to start HTTP receiver: $e');
+    }
+  }
+
+  /// Start a Bluetooth GATT server to receive files.
+  /// Note: Peripheral mode support varies by platform (better on Android).
+  Future<void> _startBluetoothReceiver() async {
+    try {
+      // Check if peripheral mode is supported
+      if (await FlutterBluePlus.isSupported == false) {
+        print('Bluetooth not supported');
+        return;
+      }
+
+      // Start advertising the QuickSend service
+      // (flutter_blue_plus peripheral advertising is limited; this is a skeleton)
+      print('Bluetooth receiver skeleton started. Full GATT server requires platform-specific setup.');
+
+      // In a full implementation you would:
+      // 1. Create a BluetoothGattServer
+      // 2. Add the QuickSend service + writable characteristic
+      // 3. Listen for onCharacteristicWriteRequest
+      // 4. Buffer incoming chunks and save the file when complete
+
+      // Placeholder: listen for connection events if available
+      FlutterBluePlus.events.onConnectionStateChanged.listen((event) {
+        if (event.connectionState == BluetoothConnectionState.connected) {
+          print('BLE device connected for potential transfer');
+        }
+      });
+    } catch (e) {
+      print('Bluetooth receiver error: $e');
+    }
+  }
+
+  /// Handle incoming BLE write data (call this from the characteristic write callback).
+  Future<void> handleBleWrite(List<int> data, String fromDevice) async {
+    _bleBuffer.addAll(data);
+
+    // Simple protocol: first write can contain filename (prefixed), subsequent are data
+    // For now, treat all data as file content and save periodically or on disconnect
+    if (_currentBleFileName == null) {
+      _currentBleFileName = 'ble_received_${DateTime.now().millisecondsSinceEpoch}.bin';
+    }
+
+    // Emit progress
+    final transfer = FileTransfer(
+      id: 'ble_${DateTime.now().millisecondsSinceEpoch}',
+      fileName: _currentBleFileName!,
+      fileSize: _bleBuffer.length,
+      peer: NearbyDevice(
+        id: fromDevice,
+        name: fromDevice,
+        address: fromDevice,
+        port: 0,
+        platform: 'Bluetooth',
+      ),
+      isOutgoing: false,
+      status: TransferStatus.inProgress,
+      progress: 0.5,
+    );
+    _incomingController.add(transfer);
+  }
+
+  /// Finalize a Bluetooth receive (call on disconnect or end marker).
+  Future<void> finalizeBleReceive() async {
+    if (_bleBuffer.isEmpty || _currentBleFileName == null) return;
+
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final file = File('${dir.path}/$_currentBleFileName');
+      await file.writeAsBytes(_bleBuffer);
+
+      final transfer = FileTransfer(
+        id: 'ble_final_${DateTime.now().millisecondsSinceEpoch}',
+        fileName: _currentBleFileName!,
+        fileSize: _bleBuffer.length,
+        peer: NearbyDevice(
+          id: 'ble',
+          name: 'Bluetooth Device',
+          address: '',
+          port: 0,
+          platform: 'Bluetooth',
+        ),
+        isOutgoing: false,
+        status: TransferStatus.completed,
+        progress: 1.0,
+      );
+      receivedFiles.add(transfer);
+      _incomingController.add(transfer);
+    } catch (e) {
+      print('Failed to save BLE file: $e');
+    } finally {
+      _bleBuffer.clear();
+      _currentBleFileName = null;
     }
   }
 
@@ -107,16 +210,16 @@ class TransferService {
   Future<void> stopReceiver() async {
     await _server?.close();
     _server = null;
+    // Stop BLE advertising if active
   }
 
-  /// Send a file over Wi-Fi (HTTP).
+  /// Send a file over Wi-Fi (HTTP) or Bluetooth.
   Future<FileTransfer> sendFile({
     required NearbyDevice peer,
     required String filePath,
     required String fileName,
     void Function(double)? onProgress,
   }) async {
-    // If this is a Bluetooth device (port == 0 and platform contains Bluetooth), use BLE
     if (peer.port == 0 && peer.platform.toLowerCase().contains('bluetooth')) {
       return _sendFileOverBluetooth(
         peer: peer,
@@ -126,7 +229,6 @@ class TransferService {
       );
     }
 
-    // Default: Wi-Fi HTTP
     final file = File(filePath);
     final bytes = await file.readAsBytes();
     final uri = Uri.parse('http://${peer.address}:${peer.port}/upload');
@@ -163,7 +265,6 @@ class TransferService {
     return transfer;
   }
 
-  /// Send a file over Bluetooth Low Energy.
   Future<FileTransfer> _sendFileOverBluetooth({
     required NearbyDevice peer,
     required String filePath,
@@ -186,12 +287,10 @@ class TransferService {
     try {
       onProgress?.call(0.1);
 
-      // Find the device by remote ID
       final device = BluetoothDevice.fromId(peer.address);
       await device.connect(timeout: const Duration(seconds: 10));
       onProgress?.call(0.3);
 
-      // Discover services
       final services = await device.discoverServices();
       BluetoothCharacteristic? transferChar;
 
@@ -210,7 +309,6 @@ class TransferService {
         throw Exception('QuickSend transfer characteristic not found');
       }
 
-      // Write file data in chunks (BLE MTU is typically ~20-512 bytes)
       const chunkSize = 180;
       for (int i = 0; i < bytes.length; i += chunkSize) {
         final end = (i + chunkSize < bytes.length) ? i + chunkSize : bytes.length;
