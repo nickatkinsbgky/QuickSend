@@ -21,15 +21,12 @@ class TransferService {
   final List<FileTransfer> receivedFiles = [];
   final Map<String, Completer<bool>> _pendingAcceptances = {};
 
-  // Temporary share links: token -> file path
   final Map<String, String> _shareLinks = {};
 
-  // BLE receive state
   List<int> _bleBuffer = [];
   String? _currentBleFileName;
   bool _bleFilenameReceived = false;
 
-  /// Start both Wi-Fi HTTP and Bluetooth GATT receivers.
   Future<void> startReceiver() async {
     await _startHttpReceiver();
     await _startBluetoothReceiver();
@@ -39,7 +36,6 @@ class TransferService {
     try {
       _server = await HttpServer.bind(InternetAddress.anyIPv4, defaultPort);
       _server!.listen((request) async {
-        // Share link download (no app required)
         if (request.method == 'GET' && request.uri.path.startsWith('/share/')) {
           final token = request.uri.pathSegments.last;
           final filePath = _shareLinks[token];
@@ -57,7 +53,6 @@ class TransferService {
           return;
         }
 
-        // Existing upload endpoint
         if (request.method == 'POST' && request.uri.path == '/upload') {
           final fileName = request.headers.value('x-filename') ??
               request.headers.value('filename') ??
@@ -104,7 +99,7 @@ class TransferService {
             final dir = await getApplicationDocumentsDirectory();
             final file = File('${dir.path}/$fileName');
             final sink = file.openWrite();
-            await request.pipe(sink);
+            await sink.addStream(request);
             await sink.close();
 
             transfer.progress = 1.0;
@@ -128,13 +123,11 @@ class TransferService {
     }
   }
 
-  /// Create a temporary share link that anyone on the same Wi-Fi can open in a browser.
   Future<String?> createShareLink(String filePath, String fileName) async {
     try {
       final token = DateTime.now().millisecondsSinceEpoch.toString();
       _shareLinks[token] = filePath;
 
-      // Try to get local IP
       final interfaces = await NetworkInterface.list();
       String? ip;
       for (final iface in interfaces) {
