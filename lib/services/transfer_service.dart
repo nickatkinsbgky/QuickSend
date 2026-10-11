@@ -13,6 +13,9 @@ class TransferService {
 
   Stream<FileTransfer> get incomingTransfers => _incomingController.stream;
 
+  // Pending acceptance completers keyed by transfer id
+  final Map<String, Completer<bool>> _pendingAcceptances = {};
+
   /// Start a simple HTTP server to receive files.
   Future<void> startReceiver() async {
     try {
@@ -23,8 +26,9 @@ class TransferService {
               request.headers.value('filename') ??
               'received_${DateTime.now().millisecondsSinceEpoch}';
 
+          final transferId = DateTime.now().millisecondsSinceEpoch.toString();
           final transfer = FileTransfer(
-            id: DateTime.now().millisecondsSinceEpoch.toString(),
+            id: transferId,
             fileName: fileName,
             fileSize: request.contentLength,
             peer: NearbyDevice(
@@ -34,12 +38,31 @@ class TransferService {
               port: 0,
             ),
             isOutgoing: false,
-            status: TransferStatus.inProgress,
+            status: TransferStatus.pending,
           );
           _incomingController.add(transfer);
 
+          // Wait for user acceptance
+          final completer = Completer<bool>();
+          _pendingAcceptances[transferId] = completer;
+          final accepted = await completer.future.timeout(
+            const Duration(seconds: 30),
+            onTimeout: () => false,
+          );
+          _pendingAcceptances.remove(transferId);
+
+          if (!accepted) {
+            transfer.status = TransferStatus.rejected;
+            _incomingController.add(transfer);
+            request.response.statusCode = 403;
+            await request.response.close();
+            return;
+          }
+
           try {
-            // Save to app documents directory
+            transfer.status = TransferStatus.inProgress;
+            _incomingController.add(transfer);
+
             final dir = await getApplicationDocumentsDirectory();
             final file = File('${dir.path}/$fileName');
             final sink = file.openWrite();
@@ -62,6 +85,14 @@ class TransferService {
       });
     } catch (e) {
       print('Failed to start receiver: $e');
+    }
+  }
+
+  /// Called by UI when user accepts or rejects an incoming transfer.
+  void respondToTransfer(String transferId, bool accepted) {
+    final completer = _pendingAcceptances[transferId];
+    if (completer != null && !completer.isCompleted) {
+      completer.complete(accepted);
     }
   }
 
