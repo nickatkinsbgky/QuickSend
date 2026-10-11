@@ -30,7 +30,7 @@ class DiscoveryService {
     return 'Unknown';
   }
 
-  Future<void> startDiscovery() async {
+  Future<void> start() async {
     await _startWifi();
     await _startBluetooth();
   }
