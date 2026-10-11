@@ -11,6 +11,7 @@ dependencies:
     sdk: flutter
   cupertino_icons: ^1.0.6
   # Discovery
+  nsd: ^5.0.1
   flutter_blue_plus: ^1.32.0
   # File picking
   file_picker: ^8.0.0
