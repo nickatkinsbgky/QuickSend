@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:nsd/nsd.dart';
 import '../models/device.dart';
 
@@ -11,10 +12,12 @@ class DiscoveryService {
       StreamController<List<NearbyDevice>>.broadcast();
 
   Stream<List<NearbyDevice>> get devicesStream => _devicesController.stream;
-  final List<NearbyDevice> _devices = [];
+  final List<NearbyDevice> _wifiDevices = [];
+  final List<NearbyDevice> _bluetoothDevices = [];
 
   Discovery? _discovery;
   Registration? _registration;
+  StreamSubscription? _scanSubscription;
 
   String get _currentPlatform {
     if (Platform.isAndroid) return 'Android';
@@ -26,8 +29,12 @@ class DiscoveryService {
   }
 
   Future<void> startDiscovery() async {
+    await _startWifiDiscovery();
+    await _startBluetoothDiscovery();
+  }
+
+  Future<void> _startWifiDiscovery() async {
     try {
-      // Register our own service so others can find us (phones, tablets, and PCs)
       _registration = await register(
         Service(
           name: '$serviceName-${_currentPlatform}',
@@ -40,36 +47,77 @@ class DiscoveryService {
         ),
       );
 
-      // Start discovering other devices on the local network
       _discovery = await startDiscovery(serviceType);
-      _discovery!.addListener(_onDiscoveryUpdate);
-      _onDiscoveryUpdate();
+      _discovery!.addListener(_onWifiDiscoveryUpdate);
+      _onWifiDiscoveryUpdate();
     } catch (e) {
-      print('Discovery error: $e');
+      print('Wi-Fi discovery error: $e');
     }
   }
 
-  void _onDiscoveryUpdate() {
+  void _onWifiDiscoveryUpdate() {
     final services = _discovery?.services ?? [];
-    _devices.clear();
+    _wifiDevices.clear();
     for (final service in services) {
       if (service.name != null && service.host != null && service.port != null) {
         final platform = service.txt?['platform'] ?? 'Unknown';
-        _devices.add(NearbyDevice(
+        _wifiDevices.add(NearbyDevice(
           id: service.name!,
           name: service.name!,
           address: service.host!,
           port: service.port!,
-          platform: platform,
+          platform: '$platform (Wi-Fi)',
         ));
       }
     }
-    _devicesController.add(List.from(_devices));
+    _emitCombined();
+  }
+
+  Future<void> _startBluetoothDiscovery() async {
+    try {
+      // Request Bluetooth permissions if needed
+      await FlutterBluePlus.adapterState.where((s) => s == BluetoothAdapterState.on).first;
+
+      // Start scanning for nearby BLE devices
+      await FlutterBluePlus.startScan(timeout: const Duration(seconds: 15));
+
+      _scanSubscription = FlutterBluePlus.scanResults.listen((results) {
+        _bluetoothDevices.clear();
+        for (final result in results) {
+          final name = result.device.platformName.isNotEmpty
+              ? result.device.platformName
+              : result.device.remoteId.str;
+          // Filter for devices that look like QuickSend or just show nearby BLE devices
+          if (name.toLowerCase().contains('quicksend') || result.rssi > -80) {
+            _bluetoothDevices.add(NearbyDevice(
+              id: result.device.remoteId.str,
+              name: name,
+              address: result.device.remoteId.str,
+              port: 0,
+              platform: 'Bluetooth',
+            ));
+          }
+        }
+        _emitCombined();
+      });
+    } catch (e) {
+      print('Bluetooth discovery error: $e');
+    }
+  }
+
+  void _emitCombined() {
+    final combined = [..._wifiDevices, ..._bluetoothDevices];
+    // Deduplicate by id
+    final unique = <String, NearbyDevice>{};
+    for (final d in combined) {
+      unique[d.id] = d;
+    }
+    _devicesController.add(unique.values.toList());
   }
 
   Future<void> stopDiscovery() async {
     if (_discovery != null) {
-      _discovery!.removeListener(_onDiscoveryUpdate);
+      _discovery!.removeListener(_onWifiDiscoveryUpdate);
       await stopDiscovery(_discovery!);
       _discovery = null;
     }
@@ -77,6 +125,9 @@ class DiscoveryService {
       await unregister(_registration!);
       _registration = null;
     }
+    await FlutterBluePlus.stopScan();
+    await _scanSubscription?.cancel();
+    _scanSubscription = null;
   }
 
   void dispose() {
