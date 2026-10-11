@@ -33,8 +33,8 @@ lib/
 ## Features
 - [x] Wi-Fi mDNS device discovery and registration (phones, tablets, and PCs)
 - [x] Bluetooth Low Energy (BLE) scanning for nearby devices
-- [x] Basic Bluetooth file send (connects and writes data in chunks)
-- [x] Bluetooth receive skeleton (GATT server buffer + save helpers)
+- [x] Bluetooth file send with filename header + EOF marker
+- [x] Bluetooth receive protocol (parses filename, buffers data, saves on EOF)
 - [x] Home screen listing nearby devices with platform identification
 - [x] Platform permissions for local network and Bluetooth discovery
 - [x] File picker and basic one-tap send flow
@@ -60,7 +60,7 @@ flutter run
 
 > Note: If you clone this repo, run `flutter create .` inside the project directory to generate the remaining platform scaffolding (build.gradle, Xcode project, etc.), then the permission files will be in place.
 
-Discovery works over Wi-Fi (mDNS) and Bluetooth (BLE). Selecting a Bluetooth device attempts to send over BLE. A receive skeleton is in place (buffer + save helpers); full GATT server advertising requires additional platform-specific code (stronger support on Android).
+Discovery works over Wi-Fi (mDNS) and Bluetooth (BLE). Bluetooth transfers use a simple protocol: `FILENAME:name\n` header, followed by file data chunks, ended by `EOF`. The receive side parses the filename and saves the file when the end marker arrives.
 
 Received files are saved to the app's documents directory. A list of received files appears at the bottom of the home screen. Image files show a small thumbnail preview on the transfer screen and in the accept dialog.
 
