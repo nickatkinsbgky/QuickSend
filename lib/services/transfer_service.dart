@@ -106,44 +106,45 @@ class TransferService {
     }
   }
 
-  /// Start a Bluetooth GATT server skeleton.
+  /// Start Bluetooth receiver (protocol ready).
   Future<void> _startBluetoothReceiver() async {
     try {
       if (await FlutterBluePlus.isSupported == false) {
         print('Bluetooth not supported');
         return;
       }
-      print('Bluetooth receiver ready (protocol: FILENAME:\n + data + EOF).');
+      print('Bluetooth receiver ready. Protocol: FILENAME:name\\n + data chunks + EOF');
     } catch (e) {
       print('Bluetooth receiver error: $e');
     }
   }
 
   /// Handle incoming BLE write data.
-  /// Protocol: first packet starts with "FILENAME:name\n", data follows, ends with "EOF".
+  /// Protocol: "FILENAME:name\\n" then data, ended by "EOF".
   Future<void> handleBleWrite(List<int> data, String fromDevice) async {
+    if (data.isEmpty) return;
+
     final text = String.fromCharCodes(data);
 
-    // Check for end marker
-    if (text.contains('EOF')) {
+    // End of transfer
+    if (text.trim() == 'EOF' || text.contains('EOF')) {
       await finalizeBleReceive();
       return;
     }
 
-    // Check for filename header
+    // Filename header
     if (!_bleFilenameReceived && text.startsWith('FILENAME:')) {
-      final end = text.indexOf('\n');
-      if (end != -1) {
-        _currentBleFileName = text.substring(9, end);
+      final newline = text.indexOf('\n');
+      if (newline != -1) {
+        _currentBleFileName = text.substring(9, newline).trim();
         _bleFilenameReceived = true;
-        // Remaining bytes after header are file data
-        final remaining = data.sublist(end + 1);
+        final remaining = data.sublist(newline + 1);
         if (remaining.isNotEmpty) {
           _bleBuffer.addAll(remaining);
         }
       }
-    } else {
-      // Regular data chunk
+    } else if (_bleFilenameReceived) {
+      // File data chunk
       _bleBuffer.addAll(data);
     }
 
@@ -167,18 +168,22 @@ class TransferService {
     }
   }
 
-  /// Finalize a Bluetooth receive.
+  /// Finalize a Bluetooth receive and save the file.
   Future<void> finalizeBleReceive() async {
-    if (_bleBuffer.isEmpty || _currentBleFileName == null) return;
+    if (_bleBuffer.isEmpty || _currentBleFileName == null) {
+      _resetBleState();
+      return;
+    }
 
     try {
       final dir = await getApplicationDocumentsDirectory();
-      final file = File('${dir.path}/$_currentBleFileName');
+      final safeName = _currentBleFileName!.replaceAll(RegExp(r'[/\\]'), '_');
+      final file = File('${dir.path}/$safeName');
       await file.writeAsBytes(_bleBuffer);
 
       final transfer = FileTransfer(
         id: 'ble_final_${DateTime.now().millisecondsSinceEpoch}',
-        fileName: _currentBleFileName!,
+        fileName: safeName,
         fileSize: _bleBuffer.length,
         peer: NearbyDevice(
           id: 'ble',
@@ -196,10 +201,14 @@ class TransferService {
     } catch (e) {
       print('Failed to save BLE file: $e');
     } finally {
-      _bleBuffer.clear();
-      _currentBleFileName = null;
-      _bleFilenameReceived = false;
+      _resetBleState();
     }
+  }
+
+  void _resetBleState() {
+    _bleBuffer.clear();
+    _currentBleFileName = null;
+    _bleFilenameReceived = false;
   }
 
   void respondToTransfer(String transferId, bool accepted) {
@@ -310,12 +319,12 @@ class TransferService {
         throw Exception('QuickSend transfer characteristic not found');
       }
 
-      // Protocol: send filename header first
+      // Protocol: filename header
       final header = 'FILENAME:$fileName\n';
       await transferChar.write(header.codeUnits, withoutResponse: false);
       onProgress?.call(0.3);
 
-      // Send file data in chunks
+      // File data
       const chunkSize = 180;
       for (int i = 0; i < bytes.length; i += chunkSize) {
         final end = (i + chunkSize < bytes.length) ? i + chunkSize : bytes.length;
@@ -326,7 +335,7 @@ class TransferService {
         onProgress?.call(progress);
       }
 
-      // Send end marker
+      // End marker
       await transferChar.write('EOF'.codeUnits, withoutResponse: false);
       onProgress?.call(0.95);
 
