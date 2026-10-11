@@ -50,7 +50,18 @@ lib/
 - [ ] End-to-end encryption for transfers
 - [ ] Folder support
 
-## Getting Started
+## Build the APK from your phone (no computer needed)
+
+A GitHub Actions workflow automatically builds a debug APK.
+
+1. Open this repo on your phone (browser or GitHub app).
+2. Go to the **Actions** tab.
+3. Click **Build Android APK** → **Run workflow** (or it runs automatically on push).
+4. Wait for the build to finish (usually a few minutes).
+5. Download the **quicksend-debug-apk** artifact.
+6. Open the APK and install it on your Android phone.
+
+## Getting Started (on a computer)
 ```bash
 flutter pub get
 flutter run
