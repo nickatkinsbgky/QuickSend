@@ -37,7 +37,7 @@ lib/
 - [x] Bluetooth receive protocol (parses FILENAME: header, buffers data, saves on EOF)
 - [x] Home screen listing nearby devices with platform identification
 - [x] Platform permissions for local network and Bluetooth discovery
-- [x] File picker and basic one-tap send flow
+- [x] Multi-file selection and sequential send
 - [x] Receive and save incoming files to app documents directory (Wi-Fi)
 - [x] Accept/reject dialog for incoming transfers
 - [x] Progress indication during send
@@ -46,7 +46,7 @@ lib/
 - [ ] Full production Bluetooth GATT server advertising (platform-specific)
 - [ ] Optional QR code pairing for devices not on the same network
 - [ ] End-to-end encryption for transfers
-- [ ] Support for multiple files and folders
+- [ ] Folder support
 
 ## Getting Started
 ```bash
@@ -67,6 +67,8 @@ Transfers over Bluetooth use this simple protocol:
 3. `EOF`
 
 The send side writes these in order. The receive side parses the header, buffers the data, and saves the file with the original name when `EOF` arrives.
+
+You can select multiple files at once. They are sent sequentially with progress shown for each file.
 
 Received files are saved to the app's documents directory. A list of received files appears at the bottom of the home screen. Image files show a small thumbnail preview on the transfer screen and in the accept dialog.
 
