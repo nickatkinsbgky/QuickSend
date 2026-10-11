@@ -57,5 +57,10 @@
 	<string>QuickSend uses Bluetooth to discover nearby devices for quick file transfers.</string>
 	<key>NSBluetoothPeripheralUsageDescription</key>
 	<string>QuickSend uses Bluetooth to discover nearby devices for quick file transfers.</string>
+	<!-- Photos / Gallery -->
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>QuickSend needs access to your photos so you can send images and videos from your library.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>QuickSend may save received photos to your library.</string>
 </dict>
 </plist>
