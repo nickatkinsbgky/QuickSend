@@ -20,6 +20,8 @@ dependencies:
   provider: ^6.1.0
   # Permissions
   permission_handler: ^11.0.0
+  # File system paths
+  path_provider: ^2.1.0
 
 dev_dependencies:
   flutter_test:
