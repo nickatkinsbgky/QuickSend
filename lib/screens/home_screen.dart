@@ -104,8 +104,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _pickAndSend([NearbyDevice? targetDevice]) async {
-    // Opens the system file picker so you can choose photos from the gallery,
-    // files from Downloads, Documents, or any other folder.
     final result = await FilePicker.platform.pickFiles(
       allowMultiple: true,
       type: FileType.any,
@@ -245,10 +243,13 @@ class _HomeScreenState extends State<HomeScreen> {
                           style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
                         ),
                         const SizedBox(height: 8),
-                        Text(
-                          'Wi-Fi and Bluetooth \u2022 Phones, tablets, and PCs',
-                          style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
-                          textAlign: TextAlign.center,
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 40),
+                          child: Text(
+                            'Make sure the other device has QuickSend open and is on the same Wi-Fi network. Bluetooth must also be on.',
+                            style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                            textAlign: TextAlign.center,
+                          ),
                         ),
                         const SizedBox(height: 24),
                         const CircularProgressIndicator(strokeWidth: 2.5),
