@@ -32,7 +32,7 @@ lib/
 - [x] Basic mDNS device discovery and registration
 - [x] Home screen listing nearby devices
 - [x] Platform permissions for local network discovery
-- [ ] One-tap send of photos, videos, documents, and other files
+- [x] File picker and basic one-tap send flow
 - [ ] Receive and accept/reject incoming transfers
 - [ ] Progress indication and transfer history
 - [ ] Optional QR code pairing for devices not on the same network
