@@ -30,14 +30,48 @@ class _HomeScreenState extends State<HomeScreen> {
     _discovery.startDiscovery();
     _transferService.startReceiver();
 
-    // Listen for incoming transfers
+    // Listen for incoming transfers and show accept/reject dialog
     _transferService.incomingTransfers.listen((transfer) {
-      if (mounted && transfer.status == TransferStatus.completed) {
+      if (!mounted) return;
+      if (transfer.status == TransferStatus.pending) {
+        _showAcceptDialog(transfer);
+      } else if (transfer.status == TransferStatus.completed) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Received: ${transfer.fileName}')),
         );
       }
     });
+  }
+
+  Future<void> _showAcceptDialog(FileTransfer transfer) async {
+    final accepted = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Incoming File'),
+        content: Text(
+          '${transfer.peer.name} wants to send\n"${transfer.fileName}"\n(${_formatSize(transfer.fileSize)})',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Reject'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Accept'),
+          ),
+        ],
+      ),
+    );
+
+    _transferService.respondToTransfer(transfer.id, accepted == true);
+  }
+
+  String _formatSize(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 
   @override
