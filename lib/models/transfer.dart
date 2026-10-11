@@ -1,3 +1,5 @@
+import 'device.dart';
+
 enum TransferStatus { pending, inProgress, completed, failed, rejected }
 
 class FileTransfer {
