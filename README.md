@@ -8,7 +8,7 @@ Enable fast, private, peer-to-peer file transfer over local networks without clo
 ## Tech Stack
 - **Flutter** for UI and cross-platform code (iOS, Android, and later desktop)
 - Local network discovery via mDNS / NSD (Bonjour on iOS, Network Service Discovery on Android) using the `nsd` package
-- Direct transfer over local HTTP with basic file saving
+- Direct transfer over local HTTP with basic file saving and progress
 - Planned: Rust core for high-performance networking (via flutter_rust_bridge) in later phases
 
 ## Architecture Overview
@@ -20,9 +20,9 @@ lib/
 │   └── transfer.dart         # File transfer session model
 ├── services/
 │   ├── discovery_service.dart # Device discovery (mDNS)
-│   └── transfer_service.dart  # File send/receive with saving
+│   └── transfer_service.dart  # File send/receive with saving and progress
 ├── screens/
-│   ├── home_screen.dart      # Nearby devices list + receiver
+│   ├── home_screen.dart      # Nearby devices + received files list
 │   └── transfer_screen.dart  # Send progress UI
 └── widgets/
     └── device_card.dart      # Reusable device UI component
@@ -35,7 +35,8 @@ lib/
 - [x] File picker and basic one-tap send flow
 - [x] Receive and save incoming files to app documents directory
 - [x] Accept/reject dialog for incoming transfers
-- [ ] Progress indication and transfer history
+- [x] Progress indication during send
+- [x] Simple list of received files
 - [ ] Optional QR code pairing for devices not on the same network
 - [ ] End-to-end encryption for transfers
 - [ ] Support for multiple files and folders
@@ -52,7 +53,7 @@ flutter run
 
 > Note: If you clone this repo, run `flutter create .` inside the project directory to generate the remaining platform scaffolding (build.gradle, Xcode project, etc.), then the permission files will be in place.
 
-Received files are saved to the app's documents directory after the user accepts them.
+Received files are saved to the app's documents directory after the user accepts them. A list of received files appears at the bottom of the home screen.
 
 ## Inspiration
 LocalSend, BIShare, and similar open-source projects.
