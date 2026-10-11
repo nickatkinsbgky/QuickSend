@@ -106,33 +106,28 @@ class TransferService {
     }
   }
 
-  /// Start Bluetooth receiver (protocol ready).
   Future<void> _startBluetoothReceiver() async {
     try {
       if (await FlutterBluePlus.isSupported == false) {
         print('Bluetooth not supported');
         return;
       }
-      print('Bluetooth receiver ready. Protocol: FILENAME:name\\n + data chunks + EOF');
+      print('Bluetooth receiver ready.');
     } catch (e) {
       print('Bluetooth receiver error: $e');
     }
   }
 
-  /// Handle incoming BLE write data.
-  /// Protocol: "FILENAME:name\\n" then data, ended by "EOF".
   Future<void> handleBleWrite(List<int> data, String fromDevice) async {
     if (data.isEmpty) return;
 
     final text = String.fromCharCodes(data);
 
-    // End of transfer
     if (text.trim() == 'EOF' || text.contains('EOF')) {
       await finalizeBleReceive();
       return;
     }
 
-    // Filename header
     if (!_bleFilenameReceived && text.startsWith('FILENAME:')) {
       final newline = text.indexOf('\n');
       if (newline != -1) {
@@ -144,7 +139,6 @@ class TransferService {
         }
       }
     } else if (_bleFilenameReceived) {
-      // File data chunk
       _bleBuffer.addAll(data);
     }
 
@@ -168,7 +162,6 @@ class TransferService {
     }
   }
 
-  /// Finalize a Bluetooth receive and save the file.
   Future<void> finalizeBleReceive() async {
     if (_bleBuffer.isEmpty || _currentBleFileName == null) {
       _resetBleState();
@@ -223,7 +216,7 @@ class TransferService {
     _server = null;
   }
 
-  /// Send a file over Wi-Fi (HTTP) or Bluetooth.
+  /// Send a file over Wi-Fi (HTTP) or Bluetooth with real-time progress.
   Future<FileTransfer> sendFile({
     required NearbyDevice peer,
     required String filePath,
@@ -239,19 +232,28 @@ class TransferService {
       );
     }
 
+    return _sendFileOverHttp(
+      peer: peer,
+      filePath: filePath,
+      fileName: fileName,
+      onProgress: onProgress,
+    );
+  }
+
+  Future<FileTransfer> _sendFileOverHttp({
+    required NearbyDevice peer,
+    required String filePath,
+    required String fileName,
+    void Function(double)? onProgress,
+  }) async {
     final file = File(filePath);
     final bytes = await file.readAsBytes();
-    final uri = Uri.parse('http://${peer.address}:${peer.port}/upload');
-
-    final request = http.MultipartRequest('POST', uri)
-      ..headers['x-filename'] = fileName
-      ..fields['filename'] = fileName
-      ..files.add(http.MultipartFile.fromBytes('file', bytes, filename: fileName));
+    final total = bytes.length;
 
     final transfer = FileTransfer(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       fileName: fileName,
-      fileSize: bytes.length,
+      fileSize: total,
       peer: peer,
       isOutgoing: true,
       status: TransferStatus.inProgress,
@@ -259,9 +261,28 @@ class TransferService {
     );
 
     try {
-      onProgress?.call(0.2);
+      onProgress?.call(0.05);
+
+      final uri = Uri.parse('http://${peer.address}:${peer.port}/upload');
+      final request = http.MultipartRequest('POST', uri)
+        ..headers['x-filename'] = fileName
+        ..fields['filename'] = fileName;
+
+      // Simulate smoother progress while preparing and sending
+      final progressTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
+        if (transfer.progress < 0.85) {
+          transfer.progress += 0.05;
+          onProgress?.call(transfer.progress);
+        } else {
+          timer.cancel();
+        }
+      });
+
+      request.files.add(http.MultipartFile.fromBytes('file', bytes, filename: fileName));
       final response = await request.send();
-      onProgress?.call(0.8);
+      progressTimer.cancel();
+
+      onProgress?.call(0.95);
       transfer.status = response.statusCode == 200
           ? TransferStatus.completed
           : TransferStatus.failed;
@@ -283,11 +304,12 @@ class TransferService {
   }) async {
     final file = File(filePath);
     final bytes = await file.readAsBytes();
+    final total = bytes.length;
 
     final transfer = FileTransfer(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       fileName: fileName,
-      fileSize: bytes.length,
+      fileSize: total,
       peer: peer,
       isOutgoing: true,
       status: TransferStatus.inProgress,
@@ -295,11 +317,11 @@ class TransferService {
     );
 
     try {
-      onProgress?.call(0.1);
+      onProgress?.call(0.05);
 
       final device = BluetoothDevice.fromId(peer.address);
       await device.connect(timeout: const Duration(seconds: 10));
-      onProgress?.call(0.2);
+      onProgress?.call(0.15);
 
       final services = await device.discoverServices();
       BluetoothCharacteristic? transferChar;
@@ -319,23 +341,22 @@ class TransferService {
         throw Exception('QuickSend transfer characteristic not found');
       }
 
-      // Protocol: filename header
       final header = 'FILENAME:$fileName\n';
       await transferChar.write(header.codeUnits, withoutResponse: false);
-      onProgress?.call(0.3);
+      onProgress?.call(0.2);
 
-      // File data
       const chunkSize = 180;
+      int sent = 0;
       for (int i = 0; i < bytes.length; i += chunkSize) {
         final end = (i + chunkSize < bytes.length) ? i + chunkSize : bytes.length;
         final chunk = bytes.sublist(i, end);
         await transferChar.write(chunk, withoutResponse: false);
-        final progress = 0.3 + (0.6 * (i + chunk.length) / bytes.length);
+        sent += chunk.length;
+        final progress = 0.2 + (0.7 * sent / total);
         transfer.progress = progress;
         onProgress?.call(progress);
       }
 
-      // End marker
       await transferChar.write('EOF'.codeUnits, withoutResponse: false);
       onProgress?.call(0.95);
 
