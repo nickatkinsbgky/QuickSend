@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
 import '../models/device.dart';
 import '../models/transfer.dart';
 
@@ -18,10 +19,13 @@ class TransferService {
       _server = await HttpServer.bind(InternetAddress.anyIPv4, defaultPort);
       _server!.listen((request) async {
         if (request.method == 'POST' && request.uri.path == '/upload') {
-          // TODO: Parse multipart or raw body, save file, emit FileTransfer
+          final fileName = request.headers.value('x-filename') ??
+              request.headers.value('filename') ??
+              'received_${DateTime.now().millisecondsSinceEpoch}';
+
           final transfer = FileTransfer(
             id: DateTime.now().millisecondsSinceEpoch.toString(),
-            fileName: request.headers.value('x-filename') ?? 'unknown',
+            fileName: fileName,
             fileSize: request.contentLength,
             peer: NearbyDevice(
               id: 'incoming',
@@ -33,9 +37,23 @@ class TransferService {
             status: TransferStatus.inProgress,
           );
           _incomingController.add(transfer);
-          // Drain the request body for now
-          await request.drain();
-          request.response.statusCode = 200;
+
+          try {
+            // Save to app documents directory
+            final dir = await getApplicationDocumentsDirectory();
+            final file = File('${dir.path}/$fileName');
+            final sink = file.openWrite();
+            await request.pipe(sink);
+            await sink.close();
+
+            transfer.status = TransferStatus.completed;
+            _incomingController.add(transfer);
+            request.response.statusCode = 200;
+          } catch (e) {
+            transfer.status = TransferStatus.failed;
+            _incomingController.add(transfer);
+            request.response.statusCode = 500;
+          }
           await request.response.close();
         } else {
           request.response.statusCode = 404;
@@ -52,7 +70,7 @@ class TransferService {
     _server = null;
   }
 
-  /// Send a file to a peer (basic HTTP POST skeleton).
+  /// Send a file to a peer (basic HTTP POST).
   Future<FileTransfer> sendFile({
     required NearbyDevice peer,
     required String filePath,
@@ -63,6 +81,7 @@ class TransferService {
     final uri = Uri.parse('http://${peer.address}:${peer.port}/upload');
 
     final request = http.MultipartRequest('POST', uri)
+      ..headers['x-filename'] = fileName
       ..fields['filename'] = fileName
       ..files.add(http.MultipartFile.fromBytes('file', bytes, filename: fileName));
 
