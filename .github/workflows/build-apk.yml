@@ -28,7 +28,7 @@ jobs:
       - name: Generate platform files
         run: |
           rm -rf android ios
-          flutter create . --platforms=android
+          flutter create . --project-name quicksend --platforms=android
 
       - name: Install dependencies
         run: flutter pub get
