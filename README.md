@@ -1,13 +1,14 @@
 # QuickSend
 
-Cross-platform app similar to Apple AirDrop for quickly sending and receiving files between iPhone, Android, and PCs on the same network.
+Cross-platform app similar to Apple AirDrop for quickly sending and receiving files between iPhone, Android, and PCs using Wi-Fi or Bluetooth.
 
 ## Goal
-Enable fast, private, peer-to-peer file transfer over local networks without cloud intermediaries, accounts, or subscriptions.
+Enable fast, private, peer-to-peer file transfer over local networks (Wi-Fi) or nearby Bluetooth without cloud intermediaries, accounts, or subscriptions.
 
 ## Tech Stack
 - **Flutter** for UI and cross-platform code (iOS, Android, Windows, macOS, Linux)
-- Local network discovery via mDNS / NSD (works for phones, tablets, and desktop PCs)
+- Local network discovery via mDNS / NSD (Wi-Fi)
+- Bluetooth Low Energy (BLE) discovery via `flutter_blue_plus`
 - Direct transfer over local HTTP with basic file saving and progress
 - Planned: Rust core for high-performance networking (via flutter_rust_bridge) in later phases
 
@@ -19,7 +20,7 @@ lib/
 │   ├── device.dart           # Nearby device model
 │   └── transfer.dart         # File transfer session model
 ├── services/
-│   ├── discovery_service.dart # Device discovery (mDNS) - phones & PCs
+│   ├── discovery_service.dart # Wi-Fi (mDNS) + Bluetooth discovery
 │   └── transfer_service.dart  # File send/receive with saving and progress
 ├── screens/
 │   ├── home_screen.dart      # Nearby devices + received files list
@@ -30,9 +31,10 @@ lib/
 ```
 
 ## Features
-- [x] Basic mDNS device discovery and registration (phones, tablets, and PCs)
+- [x] Wi-Fi mDNS device discovery and registration (phones, tablets, and PCs)
+- [x] Bluetooth Low Energy (BLE) scanning for nearby devices
 - [x] Home screen listing nearby devices with platform identification
-- [x] Platform permissions for local network discovery
+- [x] Platform permissions for local network and Bluetooth discovery
 - [x] File picker and basic one-tap send flow
 - [x] Receive and save incoming files to app documents directory
 - [x] Accept/reject dialog for incoming transfers
@@ -50,12 +52,12 @@ flutter run
 ```
 
 **Platform permissions (already added):**
-- **Android** (`android/app/src/main/AndroidManifest.xml`): `INTERNET`, `ACCESS_NETWORK_STATE`, `ACCESS_WIFI_STATE`, `CHANGE_WIFI_MULTICAST_STATE`
-- **iOS** (`ios/Runner/Info.plist`): `NSLocalNetworkUsageDescription` and `NSBonjourServices` for `_quicksend._tcp`
+- **Android** (`android/app/src/main/AndroidManifest.xml`): Network + Bluetooth permissions (`BLUETOOTH_SCAN`, `BLUETOOTH_CONNECT`, etc.)
+- **iOS** (`ios/Runner/Info.plist`): `NSLocalNetworkUsageDescription`, `NSBonjourServices`, and `NSBluetoothAlwaysUsageDescription`
 
 > Note: If you clone this repo, run `flutter create .` inside the project directory to generate the remaining platform scaffolding (build.gradle, Xcode project, etc.), then the permission files will be in place.
 
-Discovery works across phones, tablets, and desktop PCs (Windows, macOS, Linux) running QuickSend on the same Wi-Fi network. Each device advertises its platform via mDNS TXT records.
+Discovery works over Wi-Fi (mDNS) and Bluetooth (BLE). Devices on the same network or within Bluetooth range will appear in the list. Transfers currently use Wi-Fi/HTTP; Bluetooth transfer support can be added later.
 
 Received files are saved to the app's documents directory after the user accepts them. A list of received files appears at the bottom of the home screen. Image files show a small thumbnail preview on the transfer screen and in the accept dialog.
 
