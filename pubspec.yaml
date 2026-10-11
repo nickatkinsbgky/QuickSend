@@ -1,0 +1,30 @@
+name: quicksend
+description: Cross-platform AirDrop-like file transfer between iPhone and Android.
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.6
+  # Discovery
+  nsd: ^4.0.0
+  # File picking
+  file_picker: ^8.0.0
+  # HTTP for transfers
+  http: ^1.2.0
+  # State management (simple start)
+  provider: ^6.1.0
+  # Permissions
+  permission_handler: ^11.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
