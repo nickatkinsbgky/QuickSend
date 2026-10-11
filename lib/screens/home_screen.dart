@@ -28,7 +28,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _discovery.devicesStream.listen((devices) {
       if (mounted) setState(() => _devices = devices);
     });
-    _discovery.startDiscovery();
+    _discovery.start();
     _transferService.startReceiver();
 
     _transferService.incomingTransfers.listen((transfer) {
@@ -208,7 +208,7 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: const Icon(Icons.refresh),
             tooltip: 'Refresh',
             onPressed: () {
-              _discovery.stop().then((_) => _discovery.startDiscovery());
+              _discovery.stop().then((_) => _discovery.start());
             },
           ),
         ],
