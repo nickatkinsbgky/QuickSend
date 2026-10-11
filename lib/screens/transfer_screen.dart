@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/device.dart';
 import '../models/transfer.dart';
 import '../services/transfer_service.dart';
+import '../widgets/file_thumbnail.dart';
 
 class TransferScreen extends StatefulWidget {
   final NearbyDevice device;
@@ -75,8 +76,14 @@ class _TransferScreenState extends State<TransferScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text('File: ${widget.fileName}', style: Theme.of(context).textTheme.titleMedium),
+              FileThumbnail(
+                filePath: widget.filePath,
+                fileName: widget.fileName,
+                size: 120,
+              ),
               const SizedBox(height: 16),
+              Text('File: ${widget.fileName}', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 8),
               Text('To: ${widget.device.name} (${widget.device.address})'),
               const SizedBox(height: 32),
               if (_sending) ...[
