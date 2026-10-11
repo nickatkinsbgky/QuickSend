@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
+import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import '../models/device.dart';
@@ -7,19 +9,20 @@ import '../models/transfer.dart';
 
 class TransferService {
   static const int defaultPort = 8080;
+  // Custom BLE service and characteristic UUIDs for QuickSend
+  static const String quickSendServiceUuid = '12345678-1234-5678-1234-56789abcdef0';
+  static const String fileTransferCharUuid = '12345678-1234-5678-1234-56789abcdef1';
+
   HttpServer? _server;
   final StreamController<FileTransfer> _incomingController =
       StreamController<FileTransfer>.broadcast();
 
   Stream<FileTransfer> get incomingTransfers => _incomingController.stream;
 
-  // List of successfully received files
   final List<FileTransfer> receivedFiles = [];
-
-  // Pending acceptance completers keyed by transfer id
   final Map<String, Completer<bool>> _pendingAcceptances = {};
 
-  /// Start a simple HTTP server to receive files.
+  /// Start a simple HTTP server to receive files (Wi-Fi).
   Future<void> startReceiver() async {
     try {
       _server = await HttpServer.bind(InternetAddress.anyIPv4, defaultPort);
@@ -46,7 +49,6 @@ class TransferService {
           );
           _incomingController.add(transfer);
 
-          // Wait for user acceptance
           final completer = Completer<bool>();
           _pendingAcceptances[transferId] = completer;
           final accepted = await completer.future.timeout(
@@ -71,8 +73,6 @@ class TransferService {
             final dir = await getApplicationDocumentsDirectory();
             final file = File('${dir.path}/$fileName');
             final sink = file.openWrite();
-
-            // Simple progress simulation while piping (real progress would need chunked tracking)
             await request.pipe(sink);
             await sink.close();
 
@@ -97,7 +97,6 @@ class TransferService {
     }
   }
 
-  /// Called by UI when user accepts or rejects an incoming transfer.
   void respondToTransfer(String transferId, bool accepted) {
     final completer = _pendingAcceptances[transferId];
     if (completer != null && !completer.isCompleted) {
@@ -110,13 +109,24 @@ class TransferService {
     _server = null;
   }
 
-  /// Send a file to a peer (basic HTTP POST).
+  /// Send a file over Wi-Fi (HTTP).
   Future<FileTransfer> sendFile({
     required NearbyDevice peer,
     required String filePath,
     required String fileName,
     void Function(double)? onProgress,
   }) async {
+    // If this is a Bluetooth device (port == 0 and platform contains Bluetooth), use BLE
+    if (peer.port == 0 && peer.platform.toLowerCase().contains('bluetooth')) {
+      return _sendFileOverBluetooth(
+        peer: peer,
+        filePath: filePath,
+        fileName: fileName,
+        onProgress: onProgress,
+      );
+    }
+
+    // Default: Wi-Fi HTTP
     final file = File(filePath);
     final bytes = await file.readAsBytes();
     final uri = Uri.parse('http://${peer.address}:${peer.port}/upload');
@@ -148,6 +158,77 @@ class TransferService {
     } catch (e) {
       transfer.status = TransferStatus.failed;
       onProgress?.call(0.0);
+    }
+
+    return transfer;
+  }
+
+  /// Send a file over Bluetooth Low Energy.
+  Future<FileTransfer> _sendFileOverBluetooth({
+    required NearbyDevice peer,
+    required String filePath,
+    required String fileName,
+    void Function(double)? onProgress,
+  }) async {
+    final file = File(filePath);
+    final bytes = await file.readAsBytes();
+
+    final transfer = FileTransfer(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      fileName: fileName,
+      fileSize: bytes.length,
+      peer: peer,
+      isOutgoing: true,
+      status: TransferStatus.inProgress,
+      progress: 0.0,
+    );
+
+    try {
+      onProgress?.call(0.1);
+
+      // Find the device by remote ID
+      final device = BluetoothDevice.fromId(peer.address);
+      await device.connect(timeout: const Duration(seconds: 10));
+      onProgress?.call(0.3);
+
+      // Discover services
+      final services = await device.discoverServices();
+      BluetoothCharacteristic? transferChar;
+
+      for (final service in services) {
+        if (service.uuid.str.toLowerCase() == quickSendServiceUuid.toLowerCase()) {
+          for (final char in service.characteristics) {
+            if (char.uuid.str.toLowerCase() == fileTransferCharUuid.toLowerCase()) {
+              transferChar = char;
+              break;
+            }
+          }
+        }
+      }
+
+      if (transferChar == null) {
+        throw Exception('QuickSend transfer characteristic not found');
+      }
+
+      // Write file data in chunks (BLE MTU is typically ~20-512 bytes)
+      const chunkSize = 180;
+      for (int i = 0; i < bytes.length; i += chunkSize) {
+        final end = (i + chunkSize < bytes.length) ? i + chunkSize : bytes.length;
+        final chunk = bytes.sublist(i, end);
+        await transferChar.write(chunk, withoutResponse: false);
+        final progress = (i + chunk.length) / bytes.length;
+        transfer.progress = progress;
+        onProgress?.call(progress);
+      }
+
+      await device.disconnect();
+      transfer.status = TransferStatus.completed;
+      transfer.progress = 1.0;
+      onProgress?.call(1.0);
+    } catch (e) {
+      transfer.status = TransferStatus.failed;
+      onProgress?.call(0.0);
+      print('Bluetooth send error: $e');
     }
 
     return transfer;
