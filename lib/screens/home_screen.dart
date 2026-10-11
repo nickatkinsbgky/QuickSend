@@ -143,6 +143,11 @@ class _HomeScreenState extends State<HomeScreen> {
                         CircularProgressIndicator(),
                         SizedBox(height: 16),
                         Text('Looking for nearby devices...'),
+                        SizedBox(height: 8),
+                        Text(
+                          'Phones, tablets, and PCs on the same Wi-Fi',
+                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                        ),
                       ],
                     ),
                   )
