@@ -10,6 +10,7 @@ Enable fast, private, peer-to-peer file transfer over local networks (Wi-Fi) or 
 - Local network discovery via mDNS / NSD (Wi-Fi)
 - Bluetooth Low Energy (BLE) discovery and transfer via `flutter_blue_plus`
 - Direct transfer over local HTTP (Wi-Fi) or BLE characteristics (Bluetooth)
+- Share via temporary download link + QR code (no app required on receiver)
 - Planned: Rust core for high-performance networking (via flutter_rust_bridge) in later phases
 
 ## Architecture Overview
@@ -24,7 +25,8 @@ lib/
 │   └── transfer_service.dart  # File send/receive (Wi-Fi HTTP + Bluetooth BLE)
 ├── screens/
 │   ├── home_screen.dart      # Nearby devices + received files list
-│   └── transfer_screen.dart  # Send progress UI
+│   ├── transfer_screen.dart  # Send progress UI
+│   └── share_link_screen.dart # QR code + link sharing
 └── widgets/
     ├── device_card.dart      # Reusable device UI component
     └── file_thumbnail.dart   # Image thumbnail preview
@@ -35,6 +37,7 @@ lib/
 - [x] Bluetooth Low Energy (BLE) scanning for nearby devices
 - [x] Bluetooth file send with filename header + EOF marker
 - [x] Bluetooth receive protocol (parses FILENAME: header, buffers data, saves on EOF)
+- [x] Share via link + QR code (receiver does not need the app)
 - [x] Home screen listing nearby devices with platform identification
 - [x] Platform permissions for local network and Bluetooth discovery
 - [x] Multi-file selection and sequential send
@@ -44,7 +47,6 @@ lib/
 - [x] Simple list of received files
 - [x] Small image thumbnails for files being transferred
 - [ ] Full production Bluetooth GATT server advertising (platform-specific)
-- [ ] Optional QR code pairing for devices not on the same network
 - [ ] End-to-end encryption for transfers
 - [ ] Folder support
 
@@ -60,13 +62,14 @@ flutter run
 
 > Note: If you clone this repo, run `flutter create .` inside the project directory to generate the remaining platform scaffolding (build.gradle, Xcode project, etc.), then the permission files will be in place.
 
+### Share without the app
+When sending, choose **Share via link**. The app creates a temporary URL and shows a QR code. Anyone on the same Wi-Fi can open the link in a browser to download the file — no QuickSend app required on the receiver.
+
 ### Bluetooth Protocol
 Transfers over Bluetooth use this simple protocol:
 1. `FILENAME:original-name.ext\n`
 2. File data in chunks (~180 bytes)
 3. `EOF`
-
-The send side writes these in order. The receive side parses the header, buffers the data, and saves the file with the original name when `EOF` arrives.
 
 You can select multiple files at once. They are sent sequentially with real-time progress shown for each file.
 
