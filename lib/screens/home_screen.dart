@@ -145,8 +145,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         Text('Looking for nearby devices...'),
                         SizedBox(height: 8),
                         Text(
-                          'Phones, tablets, and PCs on the same Wi-Fi',
+                          'Wi-Fi and Bluetooth \u2022 Phones, tablets, and PCs',
                           style: TextStyle(fontSize: 12, color: Colors.grey),
+                          textAlign: TextAlign.center,
                         ),
                       ],
                     ),
