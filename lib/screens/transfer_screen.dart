@@ -23,6 +23,7 @@ class _TransferScreenState extends State<TransferScreen> {
   final TransferService _transferService = TransferService();
   FileTransfer? _transfer;
   bool _sending = false;
+  double _progress = 0.0;
   String? _error;
 
   @override
@@ -35,6 +36,7 @@ class _TransferScreenState extends State<TransferScreen> {
     setState(() {
       _sending = true;
       _error = null;
+      _progress = 0.0;
     });
 
     try {
@@ -42,11 +44,15 @@ class _TransferScreenState extends State<TransferScreen> {
         peer: widget.device,
         filePath: widget.filePath,
         fileName: widget.fileName,
+        onProgress: (p) {
+          if (mounted) setState(() => _progress = p);
+        },
       );
       if (mounted) {
         setState(() {
           _transfer = result;
           _sending = false;
+          _progress = result.progress;
         });
       }
     } catch (e) {
@@ -74,9 +80,9 @@ class _TransferScreenState extends State<TransferScreen> {
               Text('To: ${widget.device.name} (${widget.device.address})'),
               const SizedBox(height: 32),
               if (_sending) ...[
-                const CircularProgressIndicator(),
+                LinearProgressIndicator(value: _progress > 0 ? _progress : null),
                 const SizedBox(height: 16),
-                const Text('Sending...'),
+                Text('Sending... ${(_progress * 100).toStringAsFixed(0)}%'),
               ] else if (_error != null) ...[
                 const Icon(Icons.error, color: Colors.red, size: 48),
                 const SizedBox(height: 16),
