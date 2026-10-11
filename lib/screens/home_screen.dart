@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../models/device.dart';
 import '../services/discovery_service.dart';
+import '../widgets/device_card.dart';
+import 'transfer_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -17,7 +19,9 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _discovery.devicesStream.listen((devices) {
-      setState(() => _devices = devices);
+      if (mounted) {
+        setState(() => _devices = devices);
+      }
     });
     _discovery.startDiscovery();
   }
@@ -31,28 +35,55 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('QuickSend')),
+      appBar: AppBar(
+        title: const Text('QuickSend'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () {
+              // Restart discovery
+              _discovery.stopDiscovery().then((_) => _discovery.startDiscovery());
+            },
+          ),
+        ],
+      ),
       body: _devices.isEmpty
-          ? const Center(child: Text('Looking for nearby devices...'))
+          ? const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text('Looking for nearby devices...'),
+                ],
+              ),
+            )
           : ListView.builder(
               itemCount: _devices.length,
               itemBuilder: (context, index) {
                 final device = _devices[index];
-                return ListTile(
-                  leading: const Icon(Icons.devices),
-                  title: Text(device.name),
-                  subtitle: Text('${device.address}:${device.port}'),
+                return DeviceCard(
+                  device: device,
                   onTap: () {
-                    // TODO: Navigate to file picker / transfer screen
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => TransferScreen(device: device),
+                      ),
+                    );
                   },
                 );
               },
             ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
-          // TODO: Open file picker to send
+          // TODO: Open file picker and show device selection
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('File picker coming next')),
+          );
         },
-        child: const Icon(Icons.add),
+        icon: const Icon(Icons.send),
+        label: const Text('Send'),
       ),
     );
   }
