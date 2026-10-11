@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:nsd/nsd.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../models/device.dart';
 
 class DiscoveryService {
@@ -20,6 +21,7 @@ class DiscoveryService {
   Discovery? _wifiDiscovery;
   Registration? _wifiRegistration;
   StreamSubscription? _btSubscription;
+  Timer? _btRestartTimer;
 
   String get _currentPlatform {
     if (Platform.isAndroid) return 'Android';
@@ -31,8 +33,21 @@ class DiscoveryService {
   }
 
   Future<void> start() async {
+    await _requestPermissions();
     await _startWifi();
     await _startBluetooth();
+  }
+
+  Future<void> _requestPermissions() async {
+    if (Platform.isAndroid) {
+      await [
+        Permission.bluetoothScan,
+        Permission.bluetoothConnect,
+        Permission.locationWhenInUse,
+      ].request();
+    } else if (Platform.isIOS) {
+      await Permission.bluetooth.request();
+    }
   }
 
   Future<void> _startWifi() async {
@@ -78,7 +93,7 @@ class DiscoveryService {
 
       _wifiDevices.add(
         NearbyDevice(
-          id: service.name!,
+          id: 'wifi_${service.name}',
           name: service.name!,
           address: service.host!,
           port: service.port!,
@@ -92,38 +107,53 @@ class DiscoveryService {
 
   Future<void> _startBluetooth() async {
     try {
+      // Wait until Bluetooth is on
       await FlutterBluePlus.adapterState
           .where((s) => s == BluetoothAdapterState.on)
-          .first;
+          .first
+          .timeout(const Duration(seconds: 10));
 
-      await FlutterBluePlus.startScan(timeout: const Duration(seconds: 15));
-
-      _btSubscription = FlutterBluePlus.scanResults.listen((results) {
-        _bluetoothDevices.clear();
-
-        for (final result in results) {
-          final name = result.device.platformName.isNotEmpty
-              ? result.device.platformName
-              : result.device.remoteId.str;
-
-          if (name.toLowerCase().contains('quicksend') || result.rssi > -80) {
-            _bluetoothDevices.add(
-              NearbyDevice(
-                id: result.device.remoteId.str,
-                name: name,
-                address: result.device.remoteId.str,
-                port: 0,
-                platform: 'Bluetooth',
-              ),
-            );
-          }
-        }
-
-        _emit();
-      });
+      // Start continuous scanning by restarting periodically
+      _startBleScan();
     } catch (e) {
       print('Bluetooth discovery error: $e');
     }
+  }
+
+  void _startBleScan() {
+    FlutterBluePlus.startScan(timeout: const Duration(seconds: 30));
+
+    _btSubscription?.cancel();
+    _btSubscription = FlutterBluePlus.scanResults.listen((results) {
+      _bluetoothDevices.clear();
+
+      for (final result in results) {
+        final name = result.device.platformName.isNotEmpty
+            ? result.device.platformName
+            : result.device.remoteId.str;
+
+        // Show devices with decent signal (less strict filter)
+        if (result.rssi > -90) {
+          _bluetoothDevices.add(
+            NearbyDevice(
+              id: 'ble_${result.device.remoteId.str}',
+              name: name,
+              address: result.device.remoteId.str,
+              port: 0,
+              platform: 'Bluetooth',
+            ),
+          );
+        }
+      }
+
+      _emit();
+    });
+
+    // Restart scan every 30 seconds so it keeps looking
+    _btRestartTimer?.cancel();
+    _btRestartTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      FlutterBluePlus.startScan(timeout: const Duration(seconds: 30));
+    });
   }
 
   void _emit() {
@@ -136,6 +166,9 @@ class DiscoveryService {
   }
 
   Future<void> stop() async {
+    _btRestartTimer?.cancel();
+    _btRestartTimer = null;
+
     if (_wifiDiscovery != null) {
       _wifiDiscovery!.removeListener(_onWifiUpdate);
       await stopDiscovery(_wifiDiscovery!);
