@@ -5,6 +5,7 @@ import '../models/transfer.dart';
 import '../services/discovery_service.dart';
 import '../services/transfer_service.dart';
 import '../widgets/device_card.dart';
+import '../widgets/file_thumbnail.dart';
 import 'transfer_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -48,8 +49,16 @@ class _HomeScreenState extends State<HomeScreen> {
       barrierDismissible: false,
       builder: (context) => AlertDialog(
         title: const Text('Incoming File'),
-        content: Text(
-          '${transfer.peer.name} wants to send\n"${transfer.fileName}"\n(${_formatSize(transfer.fileSize)})',
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            FileThumbnail(fileName: transfer.fileName, size: 80),
+            const SizedBox(height: 12),
+            Text(
+              '${transfer.peer.name} wants to send\n"${transfer.fileName}"\n(${_formatSize(transfer.fileSize)})',
+              textAlign: TextAlign.center,
+            ),
+          ],
         ),
         actions: [
           TextButton(
@@ -170,13 +179,16 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Text('Received Files', style: TextStyle(fontWeight: FontWeight.bold)),
             ),
             SizedBox(
-              height: 120,
+              height: 140,
               child: ListView.builder(
                 itemCount: _received.length,
                 itemBuilder: (context, index) {
                   final file = _received[index];
                   return ListTile(
-                    leading: const Icon(Icons.insert_drive_file),
+                    leading: FileThumbnail(
+                      fileName: file.fileName,
+                      size: 48,
+                    ),
                     title: Text(file.fileName),
                     subtitle: Text(_formatSize(file.fileSize)),
                     dense: true,
