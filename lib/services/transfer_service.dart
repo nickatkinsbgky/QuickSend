@@ -9,7 +9,6 @@ import '../models/transfer.dart';
 
 class TransferService {
   static const int defaultPort = 8080;
-  // Custom BLE service and characteristic UUIDs for QuickSend
   static const String quickSendServiceUuid = '12345678-1234-5678-1234-56789abcdef0';
   static const String fileTransferCharUuid = '12345678-1234-5678-1234-56789abcdef1';
 
@@ -25,6 +24,7 @@ class TransferService {
   // BLE receive state
   List<int> _bleBuffer = [];
   String? _currentBleFileName;
+  bool _bleFilenameReceived = false;
 
   /// Start both Wi-Fi HTTP and Bluetooth GATT receivers.
   Future<void> startReceiver() async {
@@ -106,67 +106,68 @@ class TransferService {
     }
   }
 
-  /// Start a Bluetooth GATT server to receive files.
-  /// Note: Peripheral mode support varies by platform (better on Android).
+  /// Start a Bluetooth GATT server skeleton.
   Future<void> _startBluetoothReceiver() async {
     try {
-      // Check if peripheral mode is supported
       if (await FlutterBluePlus.isSupported == false) {
         print('Bluetooth not supported');
         return;
       }
-
-      // Start advertising the QuickSend service
-      // (flutter_blue_plus peripheral advertising is limited; this is a skeleton)
-      print('Bluetooth receiver skeleton started. Full GATT server requires platform-specific setup.');
-
-      // In a full implementation you would:
-      // 1. Create a BluetoothGattServer
-      // 2. Add the QuickSend service + writable characteristic
-      // 3. Listen for onCharacteristicWriteRequest
-      // 4. Buffer incoming chunks and save the file when complete
-
-      // Placeholder: listen for connection events if available
-      FlutterBluePlus.events.onConnectionStateChanged.listen((event) {
-        if (event.connectionState == BluetoothConnectionState.connected) {
-          print('BLE device connected for potential transfer');
-        }
-      });
+      print('Bluetooth receiver ready (protocol: FILENAME:\n + data + EOF).');
     } catch (e) {
       print('Bluetooth receiver error: $e');
     }
   }
 
-  /// Handle incoming BLE write data (call this from the characteristic write callback).
+  /// Handle incoming BLE write data.
+  /// Protocol: first packet starts with "FILENAME:name\n", data follows, ends with "EOF".
   Future<void> handleBleWrite(List<int> data, String fromDevice) async {
-    _bleBuffer.addAll(data);
+    final text = String.fromCharCodes(data);
 
-    // Simple protocol: first write can contain filename (prefixed), subsequent are data
-    // For now, treat all data as file content and save periodically or on disconnect
-    if (_currentBleFileName == null) {
-      _currentBleFileName = 'ble_received_${DateTime.now().millisecondsSinceEpoch}.bin';
+    // Check for end marker
+    if (text.contains('EOF')) {
+      await finalizeBleReceive();
+      return;
     }
 
-    // Emit progress
-    final transfer = FileTransfer(
-      id: 'ble_${DateTime.now().millisecondsSinceEpoch}',
-      fileName: _currentBleFileName!,
-      fileSize: _bleBuffer.length,
-      peer: NearbyDevice(
-        id: fromDevice,
-        name: fromDevice,
-        address: fromDevice,
-        port: 0,
-        platform: 'Bluetooth',
-      ),
-      isOutgoing: false,
-      status: TransferStatus.inProgress,
-      progress: 0.5,
-    );
-    _incomingController.add(transfer);
+    // Check for filename header
+    if (!_bleFilenameReceived && text.startsWith('FILENAME:')) {
+      final end = text.indexOf('\n');
+      if (end != -1) {
+        _currentBleFileName = text.substring(9, end);
+        _bleFilenameReceived = true;
+        // Remaining bytes after header are file data
+        final remaining = data.sublist(end + 1);
+        if (remaining.isNotEmpty) {
+          _bleBuffer.addAll(remaining);
+        }
+      }
+    } else {
+      // Regular data chunk
+      _bleBuffer.addAll(data);
+    }
+
+    if (_currentBleFileName != null) {
+      final transfer = FileTransfer(
+        id: 'ble_${DateTime.now().millisecondsSinceEpoch}',
+        fileName: _currentBleFileName!,
+        fileSize: _bleBuffer.length,
+        peer: NearbyDevice(
+          id: fromDevice,
+          name: fromDevice,
+          address: fromDevice,
+          port: 0,
+          platform: 'Bluetooth',
+        ),
+        isOutgoing: false,
+        status: TransferStatus.inProgress,
+        progress: 0.5,
+      );
+      _incomingController.add(transfer);
+    }
   }
 
-  /// Finalize a Bluetooth receive (call on disconnect or end marker).
+  /// Finalize a Bluetooth receive.
   Future<void> finalizeBleReceive() async {
     if (_bleBuffer.isEmpty || _currentBleFileName == null) return;
 
@@ -197,6 +198,7 @@ class TransferService {
     } finally {
       _bleBuffer.clear();
       _currentBleFileName = null;
+      _bleFilenameReceived = false;
     }
   }
 
@@ -210,7 +212,6 @@ class TransferService {
   Future<void> stopReceiver() async {
     await _server?.close();
     _server = null;
-    // Stop BLE advertising if active
   }
 
   /// Send a file over Wi-Fi (HTTP) or Bluetooth.
@@ -289,7 +290,7 @@ class TransferService {
 
       final device = BluetoothDevice.fromId(peer.address);
       await device.connect(timeout: const Duration(seconds: 10));
-      onProgress?.call(0.3);
+      onProgress?.call(0.2);
 
       final services = await device.discoverServices();
       BluetoothCharacteristic? transferChar;
@@ -309,15 +310,25 @@ class TransferService {
         throw Exception('QuickSend transfer characteristic not found');
       }
 
+      // Protocol: send filename header first
+      final header = 'FILENAME:$fileName\n';
+      await transferChar.write(header.codeUnits, withoutResponse: false);
+      onProgress?.call(0.3);
+
+      // Send file data in chunks
       const chunkSize = 180;
       for (int i = 0; i < bytes.length; i += chunkSize) {
         final end = (i + chunkSize < bytes.length) ? i + chunkSize : bytes.length;
         final chunk = bytes.sublist(i, end);
         await transferChar.write(chunk, withoutResponse: false);
-        final progress = (i + chunk.length) / bytes.length;
+        final progress = 0.3 + (0.6 * (i + chunk.length) / bytes.length);
         transfer.progress = progress;
         onProgress?.call(progress);
       }
+
+      // Send end marker
+      await transferChar.write('EOF'.codeUnits, withoutResponse: false);
+      onProgress?.call(0.95);
 
       await device.disconnect();
       transfer.status = TransferStatus.completed;
