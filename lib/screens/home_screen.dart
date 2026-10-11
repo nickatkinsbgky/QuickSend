@@ -38,7 +38,10 @@ class _HomeScreenState extends State<HomeScreen> {
       } else if (transfer.status == TransferStatus.completed && !transfer.isOutgoing) {
         setState(() => _received = List.from(_transferService.receivedFiles));
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Received: ${transfer.fileName}')),
+          SnackBar(
+            content: Text('Received: ${transfer.fileName}'),
+            behavior: SnackBarBehavior.floating,
+          ),
         );
       }
     });
@@ -54,10 +57,21 @@ class _HomeScreenState extends State<HomeScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             FileThumbnail(fileName: transfer.fileName, size: 80),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             Text(
-              '${transfer.peer.name} wants to send\n"${transfer.fileName}"\n(${_formatSize(transfer.fileSize)})',
+              '${transfer.peer.name} wants to send',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '"${transfer.fileName}"',
+              style: Theme.of(context).textTheme.titleMedium,
               textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              _formatSize(transfer.fileSize),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey),
             ),
           ],
         ),
@@ -66,7 +80,7 @@ class _HomeScreenState extends State<HomeScreen> {
             onPressed: () => Navigator.pop(context, false),
             child: const Text('Reject'),
           ),
-          ElevatedButton(
+          FilledButton(
             onPressed: () => Navigator.pop(context, true),
             child: const Text('Accept'),
           ),
@@ -96,26 +110,45 @@ class _HomeScreenState extends State<HomeScreen> {
     final files = result.files.where((f) => f.path != null).toList();
     if (files.isEmpty) return;
 
-    // Offer choice: send to discovered device or share via link
     if (mounted) {
       final choice = await showModalBottomSheet<String>(
         context: context,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        ),
         builder: (context) => SafeArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              const SizedBox(height: 8),
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 16),
               ListTile(
-                leading: const Icon(Icons.devices),
-                title: const Text('Send to nearby QuickSend device'),
-                subtitle: const Text('Requires the app on the other device'),
+                leading: CircleAvatar(
+                  backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                  child: Icon(Icons.devices, color: Theme.of(context).colorScheme.primary),
+                ),
+                title: const Text('Send to nearby device'),
+                subtitle: const Text('Requires QuickSend on the other device'),
                 onTap: () => Navigator.pop(context, 'device'),
               ),
               ListTile(
-                leading: const Icon(Icons.link),
-                title: const Text('Share via link (no app needed)'),
+                leading: CircleAvatar(
+                  backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
+                  child: Icon(Icons.link, color: Theme.of(context).colorScheme.secondary),
+                ),
+                title: const Text('Share via link'),
                 subtitle: const Text('Anyone on the same Wi-Fi can download'),
                 onTap: () => Navigator.pop(context, 'link'),
               ),
+              const SizedBox(height: 8),
             ],
           ),
         ),
@@ -169,10 +202,11 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('QuickSend'),
+        title: const Text('QuickSend', style: TextStyle(fontWeight: FontWeight.w600)),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
+            tooltip: 'Refresh',
             onPressed: () {
               _discovery.stopDiscovery().then((_) => _discovery.startDiscovery());
             },
@@ -180,26 +214,44 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (_devices.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
+              child: Text(
+                'Nearby devices',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      color: Colors.grey.shade600,
+                      fontWeight: FontWeight.w500,
+                    ),
+              ),
+            ),
           Expanded(
             child: _devices.isEmpty
-                ? const Center(
+                ? Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        CircularProgressIndicator(),
-                        SizedBox(height: 16),
-                        Text('Looking for nearby devices...'),
-                        SizedBox(height: 8),
+                        Icon(Icons.radar, size: 64, color: Colors.grey.shade400),
+                        const SizedBox(height: 20),
+                        const Text(
+                          'Looking for nearby devices...',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                        ),
+                        const SizedBox(height: 8),
                         Text(
                           'Wi-Fi and Bluetooth \u2022 Phones, tablets, and PCs',
-                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                          style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
                           textAlign: TextAlign.center,
                         ),
+                        const SizedBox(height: 24),
+                        const CircularProgressIndicator(strokeWidth: 2.5),
                       ],
                     ),
                   )
                 : ListView.builder(
+                    padding: const EdgeInsets.only(top: 4, bottom: 80),
                     itemCount: _devices.length,
                     itemBuilder: (context, index) {
                       final device = _devices[index];
@@ -211,23 +263,26 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
           ),
           if (_received.isNotEmpty) ...[
-            const Divider(),
-            const Padding(
-              padding: EdgeInsets.all(8),
-              child: Text('Received Files', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
+              child: Text(
+                'Received Files',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
             ),
             SizedBox(
-              height: 140,
+              height: 120,
               child: ListView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
                 itemCount: _received.length,
                 itemBuilder: (context, index) {
                   final file = _received[index];
                   return ListTile(
-                    leading: FileThumbnail(
-                      fileName: file.fileName,
-                      size: 48,
-                    ),
-                    title: Text(file.fileName),
+                    leading: FileThumbnail(fileName: file.fileName, size: 40),
+                    title: Text(file.fileName, maxLines: 1, overflow: TextOverflow.ellipsis),
                     subtitle: Text(_formatSize(file.fileSize)),
                     dense: true,
                   );
