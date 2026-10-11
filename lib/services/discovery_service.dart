@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:nsd/nsd.dart';
@@ -35,14 +36,15 @@ class DiscoveryService {
 
   Future<void> _startWifiDiscovery() async {
     try {
+      final encoder = const Utf8Encoder();
       _registration = await register(
         Service(
           name: '$serviceName-${_currentPlatform}',
           type: serviceType,
           port: 8080,
           txt: {
-            'platform': _currentPlatform,
-            'app': 'QuickSend',
+            'platform': encoder.convert(_currentPlatform),
+            'app': encoder.convert('QuickSend'),
           },
         ),
       );
@@ -60,7 +62,11 @@ class DiscoveryService {
     _wifiDevices.clear();
     for (final service in services) {
       if (service.name != null && service.host != null && service.port != null) {
-        final platform = service.txt?['platform'] ?? 'Unknown';
+        String platform = 'Unknown';
+        final platformBytes = service.txt?['platform'];
+        if (platformBytes != null) {
+          platform = utf8.decode(platformBytes);
+        }
         _wifiDevices.add(NearbyDevice(
           id: service.name!,
           name: service.name!,
@@ -75,10 +81,8 @@ class DiscoveryService {
 
   Future<void> _startBluetoothDiscovery() async {
     try {
-      // Request Bluetooth permissions if needed
       await FlutterBluePlus.adapterState.where((s) => s == BluetoothAdapterState.on).first;
 
-      // Start scanning for nearby BLE devices
       await FlutterBluePlus.startScan(timeout: const Duration(seconds: 15));
 
       _scanSubscription = FlutterBluePlus.scanResults.listen((results) {
@@ -87,7 +91,6 @@ class DiscoveryService {
           final name = result.device.platformName.isNotEmpty
               ? result.device.platformName
               : result.device.remoteId.str;
-          // Filter for devices that look like QuickSend or just show nearby BLE devices
           if (name.toLowerCase().contains('quicksend') || result.rssi > -80) {
             _bluetoothDevices.add(NearbyDevice(
               id: result.device.remoteId.str,
@@ -107,7 +110,6 @@ class DiscoveryService {
 
   void _emitCombined() {
     final combined = [..._wifiDevices, ..._bluetoothDevices];
-    // Deduplicate by id
     final unique = <String, NearbyDevice>{};
     for (final d in combined) {
       unique[d.id] = d;
@@ -115,7 +117,7 @@ class DiscoveryService {
     _devicesController.add(unique.values.toList());
   }
 
-  Future<void> stopDiscovery() async {
+  Future<void> stop() async {
     if (_discovery != null) {
       _discovery!.removeListener(_onWifiDiscoveryUpdate);
       await stopDiscovery(_discovery!);
@@ -131,7 +133,7 @@ class DiscoveryService {
   }
 
   void dispose() {
-    stopDiscovery();
+    stop();
     _devicesController.close();
   }
 }
