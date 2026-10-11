@@ -23,6 +23,8 @@ dependencies:
   permission_handler: ^11.0.0
   # File system paths
   path_provider: ^2.1.0
+  # QR codes for share links
+  qr_flutter: ^4.1.0
 
 dev_dependencies:
   flutter_test:
