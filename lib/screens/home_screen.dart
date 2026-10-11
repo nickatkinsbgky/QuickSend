@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import '../models/device.dart';
+import '../models/transfer.dart';
 import '../services/discovery_service.dart';
+import '../services/transfer_service.dart';
 import '../widgets/device_card.dart';
 import 'transfer_screen.dart';
 
@@ -14,6 +16,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final DiscoveryService _discovery = DiscoveryService();
+  final TransferService _transferService = TransferService();
   List<NearbyDevice> _devices = [];
 
   @override
@@ -25,11 +28,22 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     });
     _discovery.startDiscovery();
+    _transferService.startReceiver();
+
+    // Listen for incoming transfers
+    _transferService.incomingTransfers.listen((transfer) {
+      if (mounted && transfer.status == TransferStatus.completed) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Received: ${transfer.fileName}')),
+        );
+      }
+    });
   }
 
   @override
   void dispose() {
     _discovery.dispose();
+    _transferService.dispose();
     super.dispose();
   }
 
@@ -49,7 +63,6 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
-    // For simplicity, send to the first device (or show a picker later)
     final device = _devices.first;
     if (mounted) {
       Navigator.push(
