@@ -13,6 +13,9 @@ class TransferService {
 
   Stream<FileTransfer> get incomingTransfers => _incomingController.stream;
 
+  // List of successfully received files
+  final List<FileTransfer> receivedFiles = [];
+
   // Pending acceptance completers keyed by transfer id
   final Map<String, Completer<bool>> _pendingAcceptances = {};
 
@@ -39,6 +42,7 @@ class TransferService {
             ),
             isOutgoing: false,
             status: TransferStatus.pending,
+            progress: 0.0,
           );
           _incomingController.add(transfer);
 
@@ -61,15 +65,20 @@ class TransferService {
 
           try {
             transfer.status = TransferStatus.inProgress;
+            transfer.progress = 0.1;
             _incomingController.add(transfer);
 
             final dir = await getApplicationDocumentsDirectory();
             final file = File('${dir.path}/$fileName');
             final sink = file.openWrite();
+
+            // Simple progress simulation while piping (real progress would need chunked tracking)
             await request.pipe(sink);
             await sink.close();
 
+            transfer.progress = 1.0;
             transfer.status = TransferStatus.completed;
+            receivedFiles.add(transfer);
             _incomingController.add(transfer);
             request.response.statusCode = 200;
           } catch (e) {
@@ -106,6 +115,7 @@ class TransferService {
     required NearbyDevice peer,
     required String filePath,
     required String fileName,
+    void Function(double)? onProgress,
   }) async {
     final file = File(filePath);
     final bytes = await file.readAsBytes();
@@ -123,15 +133,21 @@ class TransferService {
       peer: peer,
       isOutgoing: true,
       status: TransferStatus.inProgress,
+      progress: 0.0,
     );
 
     try {
+      onProgress?.call(0.2);
       final response = await request.send();
+      onProgress?.call(0.8);
       transfer.status = response.statusCode == 200
           ? TransferStatus.completed
           : TransferStatus.failed;
+      transfer.progress = transfer.status == TransferStatus.completed ? 1.0 : 0.0;
+      onProgress?.call(transfer.progress);
     } catch (e) {
       transfer.status = TransferStatus.failed;
+      onProgress?.call(0.0);
     }
 
     return transfer;
