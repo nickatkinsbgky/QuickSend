@@ -6,6 +6,7 @@ import '../services/discovery_service.dart';
 import '../services/transfer_service.dart';
 import '../widgets/device_card.dart';
 import '../widgets/file_thumbnail.dart';
+import 'share_link_screen.dart';
 import 'transfer_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -94,6 +95,52 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final files = result.files.where((f) => f.path != null).toList();
     if (files.isEmpty) return;
+
+    // Offer choice: send to discovered device or share via link
+    if (mounted) {
+      final choice = await showModalBottomSheet<String>(
+        context: context,
+        builder: (context) => SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.devices),
+                title: const Text('Send to nearby QuickSend device'),
+                subtitle: const Text('Requires the app on the other device'),
+                onTap: () => Navigator.pop(context, 'device'),
+              ),
+              ListTile(
+                leading: const Icon(Icons.link),
+                title: const Text('Share via link (no app needed)'),
+                subtitle: const Text('Anyone on the same Wi-Fi can download'),
+                onTap: () => Navigator.pop(context, 'link'),
+              ),
+            ],
+          ),
+        ),
+      );
+
+      if (choice == 'link') {
+        final file = files.first;
+        final url = await _transferService.createShareLink(file.path!, file.name);
+        if (url != null && mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ShareLinkScreen(url: url, fileName: file.name),
+            ),
+          );
+        } else if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not create share link')),
+          );
+        }
+        return;
+      }
+
+      if (choice != 'device') return;
+    }
 
     if (_devices.isEmpty) {
       if (mounted) {
