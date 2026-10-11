@@ -40,7 +40,7 @@ lib/
 - [x] Multi-file selection and sequential send
 - [x] Receive and save incoming files to app documents directory (Wi-Fi)
 - [x] Accept/reject dialog for incoming transfers
-- [x] Progress indication during send
+- [x] Real-time progress indication during send
 - [x] Simple list of received files
 - [x] Small image thumbnails for files being transferred
 - [ ] Full production Bluetooth GATT server advertising (platform-specific)
@@ -68,7 +68,7 @@ Transfers over Bluetooth use this simple protocol:
 
 The send side writes these in order. The receive side parses the header, buffers the data, and saves the file with the original name when `EOF` arrives.
 
-You can select multiple files at once. They are sent sequentially with progress shown for each file.
+You can select multiple files at once. They are sent sequentially with real-time progress shown for each file.
 
 Received files are saved to the app's documents directory. A list of received files appears at the bottom of the home screen. Image files show a small thumbnail preview on the transfer screen and in the accept dialog.
 
