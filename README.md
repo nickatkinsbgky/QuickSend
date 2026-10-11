@@ -34,7 +34,7 @@ lib/
 - [x] Platform permissions for local network discovery
 - [x] File picker and basic one-tap send flow
 - [x] Receive and save incoming files to app documents directory
-- [ ] Accept/reject dialog for incoming transfers
+- [x] Accept/reject dialog for incoming transfers
 - [ ] Progress indication and transfer history
 - [ ] Optional QR code pairing for devices not on the same network
 - [ ] End-to-end encryption for transfers
@@ -52,7 +52,7 @@ flutter run
 
 > Note: If you clone this repo, run `flutter create .` inside the project directory to generate the remaining platform scaffolding (build.gradle, Xcode project, etc.), then the permission files will be in place.
 
-Received files are saved to the app's documents directory.
+Received files are saved to the app's documents directory after the user accepts them.
 
 ## Inspiration
 LocalSend, BIShare, and similar open-source projects.
