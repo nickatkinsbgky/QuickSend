@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:nsd/nsd.dart';
 import '../models/device.dart';
 
@@ -15,23 +16,35 @@ class DiscoveryService {
   Discovery? _discovery;
   Registration? _registration;
 
+  String get _currentPlatform {
+    if (Platform.isAndroid) return 'Android';
+    if (Platform.isIOS) return 'iOS';
+    if (Platform.isWindows) return 'Windows';
+    if (Platform.isMacOS) return 'macOS';
+    if (Platform.isLinux) return 'Linux';
+    return 'Unknown';
+  }
+
   Future<void> startDiscovery() async {
     try {
-      // Register our own service so others can find us
+      // Register our own service so others can find us (phones, tablets, and PCs)
       _registration = await register(
-        const Service(
-          name: serviceName,
+        Service(
+          name: '$serviceName-${_currentPlatform}',
           type: serviceType,
-          port: 8080, // Default transfer port
+          port: 8080,
+          txt: {
+            'platform': _currentPlatform,
+            'app': 'QuickSend',
+          },
         ),
       );
 
-      // Start discovering other devices
+      // Start discovering other devices on the local network
       _discovery = await startDiscovery(serviceType);
       _discovery!.addListener(_onDiscoveryUpdate);
-      _onDiscoveryUpdate(); // Initial update
+      _onDiscoveryUpdate();
     } catch (e) {
-      // Handle permission or platform errors
       print('Discovery error: $e');
     }
   }
@@ -41,12 +54,13 @@ class DiscoveryService {
     _devices.clear();
     for (final service in services) {
       if (service.name != null && service.host != null && service.port != null) {
+        final platform = service.txt?['platform'] ?? 'Unknown';
         _devices.add(NearbyDevice(
           id: service.name!,
           name: service.name!,
           address: service.host!,
           port: service.port!,
-          platform: 'Unknown', // Could be enriched from TXT records later
+          platform: platform,
         ));
       }
     }
