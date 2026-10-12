@@ -103,6 +103,37 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
+  Future<void> _shareViaLink() async {
+    final result = await FilePicker.platform.pickFiles(
+      allowMultiple: true,
+      type: FileType.any,
+    );
+    if (result == null || result.files.isEmpty) return;
+
+    final files = result.files.where((f) => f.path != null).toList();
+    if (files.isEmpty) return;
+
+    // For now share the first file (or we can extend later for multiple)
+    final file = files.first;
+    final url = await _transferService.createShareLink(file.path!, file.name);
+
+    if (url != null && mounted) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ShareLinkScreen(url: url, fileName: file.name),
+        ),
+      );
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not create share link. Make sure you are on Wi-Fi.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
   Future<void> _pickAndSend([NearbyDevice? targetDevice]) async {
     final result = await FilePicker.platform.pickFiles(
       allowMultiple: true,
@@ -113,77 +144,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final files = result.files.where((f) => f.path != null).toList();
     if (files.isEmpty) return;
 
-    if (mounted) {
-      final choice = await showModalBottomSheet<String>(
-        context: context,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-        ),
-        builder: (context) => SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(height: 8),
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 16),
-              ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-                  child: Icon(Icons.devices, color: Theme.of(context).colorScheme.primary),
-                ),
-                title: const Text('Send to nearby device'),
-                subtitle: const Text('Requires QuickSend on the other device'),
-                onTap: () => Navigator.pop(context, 'device'),
-              ),
-              ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
-                  child: Icon(Icons.link, color: Theme.of(context).colorScheme.secondary),
-                ),
-                title: const Text('Share via link'),
-                subtitle: const Text('Anyone on the same Wi-Fi can download'),
-                onTap: () => Navigator.pop(context, 'link'),
-              ),
-              const SizedBox(height: 8),
-            ],
-          ),
-        ),
-      );
-
-      if (choice == 'link') {
-        final file = files.first;
-        final url = await _transferService.createShareLink(file.path!, file.name);
-        if (url != null && mounted) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => ShareLinkScreen(url: url, fileName: file.name),
-            ),
-          );
-        } else if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Could not create share link')),
-          );
-        }
-        return;
-      }
-
-      if (choice != 'device') return;
-    }
-
     if (_devices.isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No nearby devices found')),
-        );
-      }
+      // No nearby QuickSend devices — fall back to share link
+      await _shareViaLink();
       return;
     }
 
@@ -246,7 +209,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 40),
                           child: Text(
-                            'Make sure the other device has QuickSend open and is on the same Wi-Fi network. Bluetooth must also be on.',
+                            'Or send a link so anyone on the same Wi-Fi can download without the app.',
                             style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
                             textAlign: TextAlign.center,
                           ),
@@ -298,10 +261,23 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _pickAndSend(),
-        icon: const Icon(Icons.send),
-        label: const Text('Send'),
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          FloatingActionButton.extended(
+            onPressed: _shareViaLink,
+            icon: const Icon(Icons.link),
+            label: const Text('Share Link'),
+            heroTag: 'shareLink',
+          ),
+          const SizedBox(height: 12),
+          FloatingActionButton.extended(
+            onPressed: () => _pickAndSend(),
+            icon: const Icon(Icons.send),
+            label: const Text('Send'),
+            heroTag: 'send',
+          ),
+        ],
       ),
     );
   }
