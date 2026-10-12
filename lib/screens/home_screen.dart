@@ -113,15 +113,20 @@ class _HomeScreenState extends State<HomeScreen> {
     final files = result.files.where((f) => f.path != null).toList();
     if (files.isEmpty) return;
 
-    // For now share the first file (or we can extend later for multiple)
-    final file = files.first;
-    final url = await _transferService.createShareLink(file.path!, file.name);
+    final fileMaps = files
+        .map((f) => {'path': f.path!, 'name': f.name})
+        .toList();
+
+    final url = await _transferService.createShareLink(fileMaps);
 
     if (url != null && mounted) {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => ShareLinkScreen(url: url, fileName: file.name),
+          builder: (_) => ShareLinkScreen(
+            url: url,
+            fileNames: files.map((f) => f.name).toList(),
+          ),
         ),
       );
     } else if (mounted) {
@@ -145,7 +150,6 @@ class _HomeScreenState extends State<HomeScreen> {
     if (files.isEmpty) return;
 
     if (_devices.isEmpty) {
-      // No nearby QuickSend devices — fall back to share link
       await _shareViaLink();
       return;
     }
