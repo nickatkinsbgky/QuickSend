@@ -21,7 +21,8 @@ class TransferService {
   final List<FileTransfer> receivedFiles = [];
   final Map<String, Completer<bool>> _pendingAcceptances = {};
 
-  final Map<String, String> _shareLinks = {};
+  // token -> list of {path, name}
+  final Map<String, List<Map<String, String>>> _shareLinks = {};
 
   List<int> _bleBuffer = [];
   String? _currentBleFileName;
@@ -37,17 +38,42 @@ class TransferService {
       _server = await HttpServer.bind(InternetAddress.anyIPv4, defaultPort);
       _server!.listen((request) async {
         if (request.method == 'GET' && request.uri.path.startsWith('/share/')) {
-          final token = request.uri.pathSegments.last;
-          final filePath = _shareLinks[token];
-          if (filePath != null && File(filePath).existsSync()) {
-            final file = File(filePath);
-            final fileName = file.uri.pathSegments.last;
-            request.response.headers.contentType = ContentType.binary;
-            request.response.headers.add('Content-Disposition', 'attachment; filename="$fileName"');
-            await request.response.addStream(file.openRead());
-            await request.response.close();
-            return;
+          final segments = request.uri.pathSegments;
+          if (segments.length >= 2) {
+            final token = segments[1];
+            final files = _shareLinks[token];
+
+            if (files != null) {
+              // Individual file download: /share/TOKEN/filename
+              if (segments.length >= 3) {
+                final requestedName = Uri.decodeComponent(segments[2]);
+                final match = files.firstWhere(
+                  (f) => f['name'] == requestedName,
+                  orElse: () => {},
+                );
+                final filePath = match['path'];
+                if (filePath != null && File(filePath).existsSync()) {
+                  final file = File(filePath);
+                  request.response.headers.contentType = ContentType.binary;
+                  request.response.headers.add(
+                    'Content-Disposition',
+                    'attachment; filename="$requestedName"',
+                  );
+                  await request.response.addStream(file.openRead());
+                  await request.response.close();
+                  return;
+                }
+              }
+
+              // List page: /share/TOKEN
+              final html = _buildSharePage(token, files);
+              request.response.headers.contentType = ContentType.html;
+              request.response.write(html);
+              await request.response.close();
+              return;
+            }
           }
+
           request.response.statusCode = 404;
           await request.response.close();
           return;
@@ -123,10 +149,42 @@ class TransferService {
     }
   }
 
-  Future<String?> createShareLink(String filePath, String fileName) async {
+  String _buildSharePage(String token, List<Map<String, String>> files) {
+    final items = files.map((f) {
+      final name = f['name'] ?? 'file';
+      final encoded = Uri.encodeComponent(name);
+      return '<li style="margin:12px 0"><a href="/share/$token/$encoded" style="font-size:18px;color:#1565c0;text-decoration:none">$name</a></li>';
+    }).join();
+
+    return '''
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>QuickSend</title>
+  <style>
+    body { font-family: -apple-system, system-ui, sans-serif; padding: 24px; background: #f5f5f5; }
+    .card { background: white; border-radius: 12px; padding: 20px; max-width: 480px; margin: 0 auto; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    h1 { font-size: 22px; margin-top: 0; }
+    ul { padding-left: 20px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>QuickSend</h1>
+    <p>Tap a file to download:</p>
+    <ul>$items</ul>
+  </div>
+</body>
+</html>
+''';
+  }
+
+  Future<String?> createShareLink(List<Map<String, String>> files) async {
+    if (files.isEmpty) return null;
     try {
       final token = DateTime.now().millisecondsSinceEpoch.toString();
-      _shareLinks[token] = filePath;
+      _shareLinks[token] = files;
 
       final interfaces = await NetworkInterface.list();
       String? ip;
