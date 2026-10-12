@@ -4,16 +4,19 @@ import 'package:qr_flutter/qr_flutter.dart';
 
 class ShareLinkScreen extends StatelessWidget {
   final String url;
-  final String fileName;
+  final List<String> fileNames;
 
   const ShareLinkScreen({
     super.key,
     required this.url,
-    required this.fileName,
+    required this.fileNames,
   });
 
   @override
   Widget build(BuildContext context) {
+    final count = fileNames.length;
+    final title = count == 1 ? 'Share "${fileNames.first}"' : 'Share $count files';
+
     return Scaffold(
       appBar: AppBar(title: const Text('Share Link')),
       body: SingleChildScrollView(
@@ -22,7 +25,7 @@ class ShareLinkScreen extends StatelessWidget {
           children: [
             const SizedBox(height: 16),
             Text(
-              'Share "$fileName"',
+              title,
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
@@ -30,12 +33,19 @@ class ShareLinkScreen extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              'Anyone on the same Wi-Fi can open this link in a browser to download the file.',
+              'Anyone on the same Wi-Fi can open this link in a browser to download the file${count > 1 ? 's' : ''}.',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: Colors.grey.shade600,
                   ),
               textAlign: TextAlign.center,
             ),
+            if (count > 1) ...[
+              const SizedBox(height: 16),
+              ...fileNames.map((name) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Text(name, style: const TextStyle(fontSize: 13)),
+                  )),
+            ],
             const SizedBox(height: 40),
             Container(
               padding: const EdgeInsets.all(16),
