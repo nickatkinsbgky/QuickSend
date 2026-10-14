@@ -86,12 +86,22 @@ class _TransferScreenState extends State<TransferScreen> {
     final isComplete = _currentIndex >= widget.files.length && !_sending;
 
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF1565C0), Color(0xFF42A5F5)],
+            ),
+          ),
+        ),
         title: Text('Send to ${widget.device.name}'),
       ),
       body: Center(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
+          padding: const EdgeInsets.fromLTRB(32, 120, 32, 32),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -101,10 +111,10 @@ class _TransferScreenState extends State<TransferScreen> {
                   fileName: currentFile['name']!,
                   size: 120,
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 24),
                 Text(
                   currentFile['name']!,
-                  style: Theme.of(context).textTheme.titleMedium,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
                   textAlign: TextAlign.center,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
@@ -114,6 +124,7 @@ class _TransferScreenState extends State<TransferScreen> {
                   'File ${_currentIndex + 1} of ${widget.files.length}',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Colors.grey.shade600,
+                        fontWeight: FontWeight.w500,
                       ),
                 ),
               ],
@@ -123,25 +134,27 @@ class _TransferScreenState extends State<TransferScreen> {
                   width: double.infinity,
                   child: LinearProgressIndicator(
                     value: _progress > 0 ? _progress : null,
-                    borderRadius: BorderRadius.circular(4),
-                    minHeight: 6,
+                    borderRadius: BorderRadius.circular(6),
+                    minHeight: 8,
+                    backgroundColor: Colors.blue.shade100,
+                    color: Theme.of(context).colorScheme.primary,
                   ),
                 ),
                 const SizedBox(height: 16),
                 Text(
                   'Sending... ${(_progress * 100).toStringAsFixed(0)}%',
-                  style: Theme.of(context).textTheme.titleMedium,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
                 ),
               ] else if (_error != null) ...[
-                Icon(Icons.error_outline, color: Colors.red.shade400, size: 64),
+                Icon(Icons.error_outline, color: Colors.red.shade400, size: 72),
                 const SizedBox(height: 16),
                 Text(
                   'Transfer failed',
-                  style: Theme.of(context).textTheme.titleMedium,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 8),
-                Text(_error!, textAlign: TextAlign.center, style: TextStyle(color: Colors.grey.shade600)),
-                const SizedBox(height: 24),
+                Text(_error!, textAlign: TextAlign.center, style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.w500)),
+                const SizedBox(height: 28),
                 FilledButton(onPressed: _sendNext, child: const Text('Retry')),
               ] else if (isComplete) ...[
                 Icon(
@@ -151,14 +164,14 @@ class _TransferScreenState extends State<TransferScreen> {
                   color: _successCount == widget.files.length
                       ? Colors.green.shade600
                       : Colors.orange.shade600,
-                  size: 72,
+                  size: 80,
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 24),
                 Text(
                   _successCount == widget.files.length
                       ? 'All files sent'
                       : '$_successCount of ${widget.files.length} files sent',
-                  style: Theme.of(context).textTheme.titleLarge,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
                   textAlign: TextAlign.center,
                 ),
               ],
