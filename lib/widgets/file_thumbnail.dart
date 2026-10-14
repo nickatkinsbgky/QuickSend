@@ -27,7 +27,7 @@ class FileThumbnail extends StatelessWidget {
   Widget build(BuildContext context) {
     if (_isImage && filePath != null && File(filePath!).existsSync()) {
       return ClipRRect(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
         child: Image.file(
           File(filePath!),
           width: size,
@@ -44,13 +44,13 @@ class FileThumbnail extends StatelessWidget {
         width: size,
         height: size,
         decoration: BoxDecoration(
-          color: Colors.grey.shade200,
-          borderRadius: BorderRadius.circular(8),
+          color: const Color(0xFFE3F2FD),
+          borderRadius: BorderRadius.circular(12),
         ),
         child: Icon(
           _isImage ? Icons.image : Icons.insert_drive_file,
           size: size * 0.5,
-          color: Colors.grey.shade600,
+          color: const Color(0xFF1565C0),
         ),
       );
 }
