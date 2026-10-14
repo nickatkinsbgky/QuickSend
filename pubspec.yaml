@@ -25,6 +25,8 @@ dependencies:
   path_provider: ^2.1.0
   # QR codes for share links
   qr_flutter: ^4.1.0
+  # Save images/videos to gallery/photos
+  gal: ^2.3.0
 
 dev_dependencies:
   flutter_test:
