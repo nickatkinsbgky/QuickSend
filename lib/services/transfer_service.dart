@@ -54,7 +54,18 @@ class TransferService {
                 final filePath = match['path'];
                 if (filePath != null && File(filePath).existsSync()) {
                   final file = File(filePath);
-                  request.response.headers.contentType = ContentType.binary;
+                  final lower = requestedName.toLowerCase();
+                  if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) {
+                    request.response.headers.contentType = ContentType('image', 'jpeg');
+                  } else if (lower.endsWith('.png')) {
+                    request.response.headers.contentType = ContentType('image', 'png');
+                  } else if (lower.endsWith('.gif')) {
+                    request.response.headers.contentType = ContentType('image', 'gif');
+                  } else if (lower.endsWith('.webp')) {
+                    request.response.headers.contentType = ContentType('image', 'webp');
+                  } else {
+                    request.response.headers.contentType = ContentType.binary;
+                  }
                   request.response.headers.add(
                     'Content-Disposition',
                     'attachment; filename="$requestedName"',
@@ -153,8 +164,13 @@ class TransferService {
     final items = files.map((f) {
       final name = f['name'] ?? 'file';
       final encoded = Uri.encodeComponent(name);
-      return '<li style="margin:12px 0"><a href="/share/$token/$encoded" style="font-size:18px;color:#1565c0;text-decoration:none">$name</a></li>';
+      final lower = name.toLowerCase();
+      final isImage = lower.endsWith('.jpg') || lower.endsWith('.jpeg') || lower.endsWith('.png') || lower.endsWith('.heic') || lower.endsWith('.gif') || lower.endsWith('.webp');
+      final badge = isImage ? ' <span style="color:#2e7d32;font-size:12px">(Photo)</span>' : '';
+      return '<li style="margin:12px 0"><a href="/share/$token/$encoded" download="$name" style="font-size:18px;color:#1565c0;text-decoration:none">$name$badge</a></li>';
     }).join();
+
+    final fileListJson = files.map((f) => '"${Uri.encodeComponent(f['name'] ?? 'file')}"').join(',');
 
     return '''
 <!DOCTYPE html>
@@ -167,14 +183,35 @@ class TransferService {
     .card { background: white; border-radius: 12px; padding: 20px; max-width: 480px; margin: 0 auto; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
     h1 { font-size: 22px; margin-top: 0; }
     ul { padding-left: 20px; }
+    .btn { display: block; width: 100%; padding: 14px; margin: 12px 0; background: #1565c0; color: white; border: none; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; }
+    .btn:active { background: #0d47a1; }
+    .note { font-size: 13px; color: #666; margin-top: 8px; }
   </style>
 </head>
 <body>
   <div class="card">
     <h1>QuickSend</h1>
-    <p>Tap a file to download:</p>
+    <p>Files ready to download:</p>
+    <button class="btn" onclick="downloadAll()">Download All</button>
+    <p class="note">Images will be offered to save to your Photos. Other files go to Downloads/Files.</p>
     <ul>$items</ul>
   </div>
+  <script>
+    const token = "$token";
+    const files = [$fileListJson];
+    async function downloadAll() {
+      for (const encoded of files) {
+        const name = decodeURIComponent(encoded);
+        const a = document.createElement('a');
+        a.href = '/share/' + token + '/' + encoded;
+        a.download = name;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        await new Promise(r => setTimeout(r, 400));
+      }
+    }
+  </script>
 </body>
 </html>
 ''';
