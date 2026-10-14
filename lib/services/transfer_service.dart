@@ -55,6 +55,7 @@ class TransferService {
                 if (filePath != null && File(filePath).existsSync()) {
                   final file = File(filePath);
                   final lower = requestedName.toLowerCase();
+                  final isImage = lower.endsWith('.jpg') || lower.endsWith('.jpeg') || lower.endsWith('.png') || lower.endsWith('.gif') || lower.endsWith('.webp');
                   if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) {
                     request.response.headers.contentType = ContentType('image', 'jpeg');
                   } else if (lower.endsWith('.png')) {
@@ -66,10 +67,17 @@ class TransferService {
                   } else {
                     request.response.headers.contentType = ContentType.binary;
                   }
-                  request.response.headers.add(
-                    'Content-Disposition',
-                    'attachment; filename="$requestedName"',
-                  );
+                  if (isImage) {
+                    request.response.headers.add(
+                      'Content-Disposition',
+                      'inline; filename="$requestedName"',
+                    );
+                  } else {
+                    request.response.headers.add(
+                      'Content-Disposition',
+                      'attachment; filename="$requestedName"',
+                    );
+                  }
                   await request.response.addStream(file.openRead());
                   await request.response.close();
                   return;
@@ -166,8 +174,16 @@ class TransferService {
       final encoded = Uri.encodeComponent(name);
       final lower = name.toLowerCase();
       final isImage = lower.endsWith('.jpg') || lower.endsWith('.jpeg') || lower.endsWith('.png') || lower.endsWith('.heic') || lower.endsWith('.gif') || lower.endsWith('.webp');
-      final badge = isImage ? ' <span style="color:#2e7d32;font-size:12px">(Photo)</span>' : '';
-      return '<li style="margin:12px 0"><a href="/share/$token/$encoded" download="$name" style="font-size:18px;color:#1565c0;text-decoration:none">$name$badge</a></li>';
+      if (isImage) {
+        return '''
+        <div style="margin:16px 0; text-align:center;">
+          <img src="/share/$token/$encoded" alt="$name" style="max-width:100%; height:auto; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+          <p style="margin:8px 0 0; font-size:14px;">$name<br><span style="color:#2e7d32;font-size:12px">Long-press the image → Save to Photos</span></p>
+        </div>
+        ''';
+      } else {
+        return '<li style="margin:12px 0"><a href="/share/$token/$encoded" download="$name" style="font-size:18px;color:#1565c0;text-decoration:none">$name</a></li>';
+      }
     }).join();
 
     final fileListJson = files.map((f) => '"${Uri.encodeComponent(f['name'] ?? 'file')}"').join(',');
@@ -192,10 +208,10 @@ class TransferService {
 <body>
   <div class="card">
     <h1>QuickSend</h1>
-    <p>Files ready to download:</p>
-    <button class="btn" onclick="downloadAll()">Download All</button>
-    <p class="note">Images will be offered to save to your Photos. Other files go to Downloads/Files.</p>
-    <ul>$items</ul>
+    <p>Files ready:</p>
+    <button class="btn" onclick="downloadAll()">Download non-photo files</button>
+    <p class="note">Photos appear below. Long-press any photo and choose “Save to Photos” (iPhone) or “Save image” (Android) to add it directly to your photo album. Regular downloads go to Files/Downloads.</p>
+    <div>$items</div>
   </div>
   <script>
     const token = "$token";
@@ -203,6 +219,9 @@ class TransferService {
     async function downloadAll() {
       for (const encoded of files) {
         const name = decodeURIComponent(encoded);
+        const lower = name.toLowerCase();
+        const isImage = lower.endsWith('.jpg') || lower.endsWith('.jpeg') || lower.endsWith('.png') || lower.endsWith('.gif') || lower.endsWith('.webp') || lower.endsWith('.heic');
+        if (isImage) continue; // Photos are handled by long-press on the displayed image
         const a = document.createElement('a');
         a.href = '/share/' + token + '/' + encoded;
         a.download = name;
@@ -267,7 +286,7 @@ class TransferService {
     }
 
     if (!_bleFilenameReceived && text.startsWith('FILENAME:')) {
-      final newline = text.indexOf('\n');
+      final newline = text.indexOf('\\n');
       if (newline != -1) {
         _currentBleFileName = text.substring(9, newline).trim();
         _bleFilenameReceived = true;
@@ -308,7 +327,7 @@ class TransferService {
 
     try {
       final dir = await getApplicationDocumentsDirectory();
-      final safeName = _currentBleFileName!.replaceAll(RegExp(r'[/\\]'), '_');
+      final safeName = _currentBleFileName!.replaceAll(RegExp(r'[/\\\\]'), '_');
       final file = File('${dir.path}/$safeName');
       await file.writeAsBytes(_bleBuffer);
 
@@ -477,7 +496,7 @@ class TransferService {
         throw Exception('QuickSend transfer characteristic not found');
       }
 
-      final header = 'FILENAME:$fileName\n';
+      final header = 'FILENAME:$fileName\\n';
       await transferChar.write(header.codeUnits, withoutResponse: false);
       onProgress?.call(0.2);
 
