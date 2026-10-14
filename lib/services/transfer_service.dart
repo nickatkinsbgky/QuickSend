@@ -179,13 +179,14 @@ class TransferService {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>QuickSend</title>
   <style>
-    body { font-family: -apple-system, system-ui, sans-serif; padding: 24px; background: #f5f5f5; }
-    .card { background: white; border-radius: 12px; padding: 20px; max-width: 480px; margin: 0 auto; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-    h1 { font-size: 22px; margin-top: 0; }
+    body { font-family: -apple-system, system-ui, sans-serif; padding: 24px; background: linear-gradient(135deg, #0d47a1 0%, #1565c0 50%, #42a5f5 100%); min-height: 100vh; margin: 0; }
+    .card { background: rgba(255,255,255,0.95); border-radius: 16px; padding: 24px; max-width: 480px; margin: 0 auto; box-shadow: 0 8px 32px rgba(0,0,0,0.2); }
+    h1 { font-size: 24px; margin-top: 0; color: #0d47a1; }
     ul { padding-left: 20px; }
-    .btn { display: block; width: 100%; padding: 14px; margin: 12px 0; background: #1565c0; color: white; border: none; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; }
-    .btn:active { background: #0d47a1; }
-    .note { font-size: 13px; color: #666; margin-top: 8px; }
+    a { color: #1565c0; }
+    .btn { display: block; width: 100%; padding: 16px; margin: 16px 0; background: linear-gradient(135deg, #1565c0, #42a5f5); color: white; border: none; border-radius: 12px; font-size: 17px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 12px rgba(21,101,192,0.4); }
+    .btn:active { transform: scale(0.98); }
+    .note { font-size: 13px; color: #546e7a; margin-top: 8px; }
   </style>
 </head>
 <body>
