@@ -18,16 +18,28 @@ class ShareLinkScreen extends StatelessWidget {
     final title = count == 1 ? 'Share "${fileNames.first}"' : 'Share $count files';
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Share Link')),
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF1565C0), Color(0xFF42A5F5)],
+            ),
+          ),
+        ),
+        title: const Text('Share Link'),
+      ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.fromLTRB(24, 120, 24, 32),
         child: Column(
           children: [
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
             Text(
               title,
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w800,
                   ),
               textAlign: TextAlign.center,
             ),
@@ -35,7 +47,8 @@ class ShareLinkScreen extends StatelessWidget {
             Text(
               'Anyone on the same Wi-Fi can open this link in a browser to download the file${count > 1 ? 's' : ''}.',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.grey.shade600,
+                    color: Colors.grey.shade700,
+                    fontWeight: FontWeight.w500,
                   ),
               textAlign: TextAlign.center,
             ),
@@ -43,20 +56,20 @@ class ShareLinkScreen extends StatelessWidget {
               const SizedBox(height: 16),
               ...fileNames.map((name) => Padding(
                     padding: const EdgeInsets.symmetric(vertical: 2),
-                    child: Text(name, style: const TextStyle(fontSize: 13)),
+                    child: Text(name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
                   )),
             ],
             const SizedBox(height: 40),
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.06),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
+                    color: const Color(0xFF1565C0).withOpacity(0.15),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
                   ),
                 ],
               ),
@@ -72,26 +85,27 @@ class ShareLinkScreen extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.grey.shade50,
+                color: Colors.blue.shade50,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey.shade200),
+                border: Border.all(color: Colors.blue.shade100),
               ),
               child: SelectableText(
                 url,
-                style: const TextStyle(fontSize: 14, fontFamily: 'monospace'),
+                style: const TextStyle(fontSize: 14, fontFamily: 'monospace', fontWeight: FontWeight.w500),
                 textAlign: TextAlign.center,
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 28),
             SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
                 onPressed: () {
                   Clipboard.setData(ClipboardData(text: url));
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Link copied to clipboard'),
+                    SnackBar(
+                      content: const Text('Link copied to clipboard'),
                       behavior: SnackBarBehavior.floating,
+                      backgroundColor: Theme.of(context).colorScheme.primary,
                     ),
                   );
                 },
