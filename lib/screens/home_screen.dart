@@ -41,6 +41,7 @@ class _HomeScreenState extends State<HomeScreen> {
           SnackBar(
             content: Text('Received: ${transfer.fileName}'),
             behavior: SnackBarBehavior.floating,
+            backgroundColor: Theme.of(context).colorScheme.primary,
           ),
         );
       }
@@ -52,7 +53,7 @@ class _HomeScreenState extends State<HomeScreen> {
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
-        title: const Text('Incoming File'),
+        title: const Text('Incoming File', style: TextStyle(fontWeight: FontWeight.w800)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -78,7 +79,7 @@ class _HomeScreenState extends State<HomeScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Reject'),
+            child: const Text('Reject', style: TextStyle(fontWeight: FontWeight.w600)),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
@@ -171,8 +172,18 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text('QuickSend', style: TextStyle(fontWeight: FontWeight.w600)),
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF1565C0), Color(0xFF42A5F5)],
+            ),
+          ),
+        ),
+        title: const Text('QuickSend'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -186,14 +197,15 @@ class _HomeScreenState extends State<HomeScreen> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const SizedBox(height: 100), // space for extended AppBar
           if (_devices.isNotEmpty)
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
               child: Text(
                 'Nearby devices',
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: Colors.grey.shade600,
-                      fontWeight: FontWeight.w500,
+                      color: Colors.blueGrey.shade700,
+                      fontWeight: FontWeight.w700,
                     ),
               ),
             ),
@@ -203,28 +215,30 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.radar, size: 64, color: Colors.grey.shade400),
-                        const SizedBox(height: 20),
-                        const Text(
+                        Icon(Icons.radar, size: 72, color: Colors.blue.shade200),
+                        const SizedBox(height: 24),
+                        Text(
                           'Looking for nearby devices...',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 12),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 40),
                           child: Text(
                             'Or send a link so anyone on the same Wi-Fi can download without the app.',
-                            style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                            style: TextStyle(fontSize: 14, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
                             textAlign: TextAlign.center,
                           ),
                         ),
-                        const SizedBox(height: 24),
-                        const CircularProgressIndicator(strokeWidth: 2.5),
+                        const SizedBox(height: 28),
+                        const CircularProgressIndicator(strokeWidth: 3),
                       ],
                     ),
                   )
                 : ListView.builder(
-                    padding: const EdgeInsets.only(top: 4, bottom: 80),
+                    padding: const EdgeInsets.only(top: 4, bottom: 100),
                     itemCount: _devices.length,
                     itemBuilder: (context, index) {
                       final device = _devices[index];
@@ -242,20 +256,20 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Text(
                 'Received Files',
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w700,
                     ),
               ),
             ),
             SizedBox(
-              height: 120,
+              height: 130,
               child: ListView.builder(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 itemCount: _received.length,
                 itemBuilder: (context, index) {
                   final file = _received[index];
                   return ListTile(
-                    leading: FileThumbnail(fileName: file.fileName, size: 40),
-                    title: Text(file.fileName, maxLines: 1, overflow: TextOverflow.ellipsis),
+                    leading: FileThumbnail(fileName: file.fileName, size: 44),
+                    title: Text(file.fileName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600)),
                     subtitle: Text(_formatSize(file.fileSize)),
                     dense: true,
                   );
@@ -273,13 +287,15 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: const Icon(Icons.link),
             label: const Text('Share Link'),
             heroTag: 'shareLink',
+            elevation: 6,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           FloatingActionButton.extended(
             onPressed: () => _pickAndSend(),
             icon: const Icon(Icons.send),
             label: const Text('Send'),
             heroTag: 'send',
+            elevation: 8,
           ),
         ],
       ),
